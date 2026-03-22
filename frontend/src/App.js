@@ -9,6 +9,8 @@ import Register from './pages/Register';
 import WorkspacesHome from './pages/WorkspacesHome';
 import NewBoard from './pages/NewBoard';
 import BoardPage from './pages/BoardPage';
+import DashboardsPage from './pages/DashboardsPage';
+import NewWorkspace from './pages/NewWorkspace';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -43,6 +45,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <WorkspacesHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspaces/new"
+                element={
+                  <ProtectedRoute>
+                    <NewWorkspace />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspaces/:workspaceId/dashboards"
+                element={
+                  <ProtectedRoute>
+                    <DashboardsPage />
                   </ProtectedRoute>
                 }
               />
