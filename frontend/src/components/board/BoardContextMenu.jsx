@@ -39,18 +39,17 @@ const BoardContextMenu = ({ board, onUpdate }) => {
 
   const handleDuplicate = async () => {
     try {
-      // Call duplicate API endpoint
-      const response = await api.post(`/boards/${board.id}/duplicate`, {
-        option: duplicateOption,
-        include_subscribers: includeSubscribers,
-      });
+      // Call duplicate API endpoint with query params
+      const response = await api.post(
+        `/boards/${board.id}/duplicate?option=${duplicateOption}&include_subscribers=${includeSubscribers}`
+      );
       toast({ title: 'Success', description: 'Board duplicated successfully!' });
       setShowDuplicateDialog(false);
       onUpdate?.();
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to duplicate board',
+        description: error.response?.data?.detail || 'Failed to duplicate board',
         variant: 'destructive',
       });
     }

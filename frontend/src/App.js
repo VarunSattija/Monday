@@ -13,6 +13,8 @@ import DashboardsPage from './pages/DashboardsPage';
 import NewWorkspace from './pages/NewWorkspace';
 import AutomationsPage from './pages/AutomationsPage';
 import SettingsPage from './pages/SettingsPage';
+import AIAgentsPage from './pages/AIAgentsPage';
+import AIAgentCreation from './pages/AIAgentCreation';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -95,6 +97,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-agents"
+                element={
+                  <ProtectedRoute>
+                    <AIAgentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-agents/new"
+                element={
+                  <ProtectedRoute>
+                    <AIAgentCreation />
                   </ProtectedRoute>
                 }
               />

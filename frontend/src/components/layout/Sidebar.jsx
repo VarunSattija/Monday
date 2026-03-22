@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, Bell, Search, ChevronDown, Plus } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, Zap, Bell, Search, ChevronDown, Plus, Brain } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -93,6 +93,14 @@ const Sidebar = () => {
           >
             <Zap className="h-4 w-4 mr-3" />
             Automations
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => navigate('/ai-agents')}
+          >
+            <Brain className="h-4 w-4 mr-3" />
+            AI Agents
           </Button>
         </div>
 

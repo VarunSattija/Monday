@@ -138,3 +138,84 @@ async def add_column(
     )
     
     return {"message": "Column added successfully"}
+
+
+@router.post("/{board_id}/duplicate")
+async def duplicate_board(
+    board_id: str,
+    option: str,
+    include_subscribers: bool = False,
+    current_user: dict = Depends(get_current_user)
+):
+    # Get original board
+    original_board = await db.boards.find_one({"id": board_id})
+    if not original_board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Create new board with duplicated data
+    import uuid
+    new_board = Board(
+        name=f"{original_board['name']} (Copy)",
+        workspace_id=original_board["workspace_id"],
+        description=original_board.get("description"),
+        owner_id=current_user["id"],
+        member_ids=[current_user["id"]] if not include_subscribers else original_board.get("member_ids", []),
+        columns=original_board.get("columns", [])
+    )
+    
+    await db.boards.insert_one(new_board.dict())
+    
+    # If including items, duplicate them
+    if option in ["structure_items", "structure_items_updates"]:
+        # Get all groups
+        groups = await db.groups.find({"board_id": board_id}).to_list(1000)
+        group_id_map = {}
+        
+        # Duplicate groups
+        for group in groups:
+            old_group_id = group["id"]
+            new_group = Group(
+                board_id=new_board.id,
+                title=group["title"],
+                color=group.get("color", "#0086c0"),
+                position=group.get("position", 0),
+                collapsed=group.get("collapsed", False)
+            )
+            await db.groups.insert_one(new_group.dict())
+            group_id_map[old_group_id] = new_group.id
+        
+        # Get all items
+        items = await db.items.find({"board_id": board_id}).to_list(1000)
+        item_id_map = {}
+        
+        # Duplicate items
+        for item in items:
+            old_item_id = item["id"]
+            new_group_id = group_id_map.get(item.get("group_id")) if item.get("group_id") else None
+            
+            new_item = Item(
+                board_id=new_board.id,
+                group_id=new_group_id,
+                name=item["name"],
+                column_values=item.get("column_values", {}),
+                position=item.get("position", 0),
+                created_by=current_user["id"]
+            )
+            await db.items.insert_one(new_item.dict())
+            item_id_map[old_item_id] = new_item.id
+        
+        # If including updates, duplicate them
+        if option == "structure_items_updates":
+            for old_item_id, new_item_id in item_id_map.items():
+                updates = await db.updates.find({"item_id": old_item_id}).to_list(1000)
+                for update in updates:
+                    from models import Update
+                    new_update = Update(
+                        item_id=new_item_id,
+                        content=update["content"],
+                        user_id=update["user_id"],
+                        user_name=update["user_name"]
+                    )
+                    await db.updates.insert_one(new_update.dict())
+    
+    return {"message": "Board duplicated successfully", "board_id": new_board.id, "board": new_board.dict()}
