@@ -9,6 +9,7 @@ import TableView from '../components/board/TableView';
 import KanbanView from '../components/board/KanbanView';
 import TimelineView from '../components/board/TimelineView';
 import CalendarView from '../components/board/CalendarView';
+import AddColumnDialog from '../components/board/AddColumnDialog';
 import { toast } from '../hooks/use-toast';
 
 const BoardPage = () => {
@@ -132,6 +133,7 @@ const BoardPage = () => {
       title={board.name}
       actions={
         <div className="flex gap-2">
+          <AddColumnDialog boardId={boardId} onColumnAdded={fetchBoardData} />
           <Button
             variant="outline"
             size="sm"

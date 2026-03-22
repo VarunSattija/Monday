@@ -11,6 +11,7 @@ import NewBoard from './pages/NewBoard';
 import BoardPage from './pages/BoardPage';
 import DashboardsPage from './pages/DashboardsPage';
 import NewWorkspace from './pages/NewWorkspace';
+import AutomationsPage from './pages/AutomationsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -61,6 +62,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <DashboardsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspaces/:workspaceId/automations"
+                element={
+                  <ProtectedRoute>
+                    <AutomationsPage />
                   </ProtectedRoute>
                 }
               />
