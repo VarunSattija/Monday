@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Kanban, Calendar, BarChart3, Settings } from 'lucide-react';
+import { Plus, Table as TableIcon, Kanban, Calendar, BarChart3, Settings, History } from 'lucide-react';
 import TableView from '../components/board/TableView';
 import KanbanView from '../components/board/KanbanView';
 import TimelineView from '../components/board/TimelineView';
 import CalendarView from '../components/board/CalendarView';
 import AddColumnDialog from '../components/board/AddColumnDialog';
+import ActivityLog from '../components/board/ActivityLog';
+import BoardContextMenu from '../components/board/BoardContextMenu';
 import { toast } from '../hooks/use-toast';
 
 const BoardPage = () => {
   const { boardId } = useParams();
+  const navigate = useNavigate();
   const [board, setBoard] = useState(null);
   const [items, setItems] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('table');
+  const [showActivityLog, setShowActivityLog] = useState(false);
 
   useEffect(() => {
     fetchBoardData();
@@ -133,6 +137,14 @@ const BoardPage = () => {
       title={board.name}
       actions={
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowActivityLog(true)}
+          >
+            <History className="h-4 w-4 mr-2" />
+            Activity
+          </Button>
           <AddColumnDialog boardId={boardId} onColumnAdded={fetchBoardData} />
           <Button
             variant="outline"
@@ -142,9 +154,11 @@ const BoardPage = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add Group
           </Button>
+          <BoardContextMenu board={board} onUpdate={fetchBoardData} />
           <Button
             size="sm"
             className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+            onClick={() => navigate(`/boards/${boardId}/settings`)}
           >
             <Settings className="h-4 w-4 mr-2" />
             Settings
@@ -216,6 +230,9 @@ const BoardPage = () => {
           )}
         </div>
       </div>
+
+      {/* Activity Log Sidebar */}
+      <ActivityLog open={showActivityLog} onClose={() => setShowActivityLog(false)} />
     </Layout>
   );
 };

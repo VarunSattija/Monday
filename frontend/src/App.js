@@ -12,6 +12,7 @@ import BoardPage from './pages/BoardPage';
 import DashboardsPage from './pages/DashboardsPage';
 import NewWorkspace from './pages/NewWorkspace';
 import AutomationsPage from './pages/AutomationsPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -86,6 +87,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <BoardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/boards/:boardId/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
                   </ProtectedRoute>
                 }
               />

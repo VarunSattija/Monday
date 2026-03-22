@@ -9,6 +9,7 @@ from pathlib import Path
 # Import route modules
 from routes import auth_routes, workspace_routes, board_routes, item_routes
 from routes import group_routes, update_routes, automation_routes, dashboard_routes
+from routes import activity_routes, permission_routes
 
 
 ROOT_DIR = Path(__file__).parent
@@ -39,6 +40,8 @@ api_router.include_router(group_routes.router)
 api_router.include_router(update_routes.router)
 api_router.include_router(automation_routes.router)
 api_router.include_router(dashboard_routes.router)
+api_router.include_router(activity_routes.router)
+api_router.include_router(permission_routes.router)
 
 # Include the router in the main app
 app.include_router(api_router)
