@@ -219,3 +219,92 @@ async def duplicate_board(
                     await db.updates.insert_one(new_update.dict())
     
     return {"message": "Board duplicated successfully", "board_id": new_board.id, "board": new_board.dict()}
+
+
+@router.post("/{board_id}/invite")
+async def invite_to_board(
+    board_id: str,
+    email: str,
+    role: str = "member",
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Check if user is owner or member
+    if current_user["id"] not in board.get("member_ids", []) and board["owner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to invite members")
+    
+    # In a real application, you would:
+    # 1. Create an invitation record
+    # 2. Send email to the invited user
+    # 3. When they accept, add them to board
+    
+    # For now, we'll simulate this by adding a pending invitation
+    invitation = {
+        "id": str(uuid.uuid4()),
+        "board_id": board_id,
+        "email": email,
+        "role": role,
+        "invited_by": current_user["id"],
+        "invited_at": datetime.utcnow(),
+        "status": "pending"
+    }
+    
+    await db.board_invitations.insert_one(invitation)
+    
+    return {"message": "Invitation sent successfully", "invitation": invitation}
+
+
+@router.delete("/{board_id}/members/{member_id}")
+async def remove_board_member(
+    board_id: str,
+    member_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    if board["owner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only owner can remove members")
+    
+    # Remove member from board
+    await db.boards.update_one(
+        {"id": board_id},
+        {"$pull": {"member_ids": member_id}}
+    )
+    
+    return {"message": "Member removed successfully"}
+
+
+@router.put("/{board_id}/members/{member_id}/role")
+async def update_member_role(
+    board_id: str,
+    member_id: str,
+    role: str,
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    if board["owner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only owner can change roles")
+    
+    # Update member role (store in permissions collection)
+    await db.permissions.update_one(
+        {"board_id": board_id, "user_id": member_id},
+        {"$set": {"role": role}},
+        upsert=True
+    )
+    
+    # If making them owner, transfer ownership
+    if role == "owner":
+        await db.boards.update_one(
+            {"id": board_id},
+            {"$set": {"owner_id": member_id}}
+        )
+    
+    return {"message": "Role updated successfully"}

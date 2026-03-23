@@ -12,6 +12,7 @@ import CalendarView from '../components/board/CalendarView';
 import AddColumnDialog from '../components/board/AddColumnDialog';
 import ActivityLog from '../components/board/ActivityLog';
 import BoardContextMenu from '../components/board/BoardContextMenu';
+import InviteToBoardDialog from '../components/board/InviteToBoardDialog';
 import { toast } from '../hooks/use-toast';
 
 const BoardPage = () => {
@@ -137,6 +138,7 @@ const BoardPage = () => {
       title={board.name}
       actions={
         <div className="flex gap-2">
+          <InviteToBoardDialog boardId={boardId} onInvite={fetchBoardData} />
           <Button
             variant="outline"
             size="sm"

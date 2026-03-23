@@ -12,8 +12,9 @@ import StatusCell from './cells/StatusCell';
 import PersonCell from './cells/PersonCell';
 import DateCell from './cells/DateCell';
 import TextCell from './cells/TextCell';
+import ColumnSettingsMenu from './ColumnSettingsMenu';
 
-const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem }) => {
+const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem, onRefresh }) => {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
   const toggleGroup = (groupId) => {
@@ -24,6 +25,16 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
       newCollapsed.add(groupId);
     }
     setCollapsedGroups(newCollapsed);
+  };
+
+  const handleUpdateColumn = (updatedColumn) => {
+    // Update column in board
+    onRefresh();
+  };
+
+  const handleDeleteColumn = (columnId) => {
+    // Delete column logic
+    onRefresh();
   };
 
   const getColumnComponent = (column, item) => {
@@ -96,10 +107,15 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
             {board.columns?.slice(1).map((column) => (
               <div
                 key={column.id}
-                className="flex-shrink-0 px-4 py-3 font-semibold text-sm text-gray-700 border-r border-gray-200"
+                className="flex-shrink-0 px-4 py-3 font-semibold text-sm text-gray-700 border-r border-gray-200 flex items-center justify-between"
                 style={{ width: `${column.width}px` }}
               >
-                {column.title}
+                <span>{column.title}</span>
+                <ColumnSettingsMenu
+                  column={column}
+                  onUpdate={handleUpdateColumn}
+                  onDelete={() => handleDeleteColumn(column.id)}
+                />
               </div>
             ))}
           </div>
