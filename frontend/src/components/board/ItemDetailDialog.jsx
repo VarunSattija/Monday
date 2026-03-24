@@ -147,7 +147,7 @@ const ItemDetailDialog = ({ item, open, onClose }) => {
         </div>
 
         {/* Comment Input */}
-        <div className="border-t px-6 py-4">
+        <div className="border-t px-6 py-4 pb-6">
           <form onSubmit={handleSubmitComment} className="flex gap-3" data-testid="comment-form">
             <Avatar className="h-8 w-8 flex-shrink-0">
               <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs">
