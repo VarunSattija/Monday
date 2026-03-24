@@ -44,6 +44,10 @@ class TeamCreate(BaseModel):
     name: str
     description: Optional[str] = None
 
+class InviteMemberRequest(BaseModel):
+    email: str
+    role: str = "member"
+
 
 @router.get("", response_model=List[Team])
 async def get_teams(
@@ -207,3 +211,61 @@ async def update_member_role(
     )
     
     return {"message": "Role updated successfully"}
+
+
+@router.post("/{team_id}/invite")
+async def invite_member_by_email(
+    team_id: str,
+    invite_data: InviteMemberRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    team = await db.teams.find_one({"id": team_id})
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Check if current user is admin
+    is_admin = any(
+        member["user_id"] == current_user["id"] and member["role"] == "admin"
+        for member in team.get("members", [])
+    )
+    
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can invite members")
+    
+    # Check if email is already in team
+    member_exists = any(
+        member.get("email") == invite_data.email
+        for member in team.get("members", [])
+    )
+    
+    if member_exists:
+        raise HTTPException(status_code=400, detail="User already in team")
+    
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": invite_data.email})
+    
+    if existing_user:
+        # Add existing user directly
+        new_member = TeamMember(
+            user_id=existing_user["id"],
+            name=existing_user.get("name", "Unknown"),
+            email=invite_data.email,
+            role=invite_data.role,
+            status="active"
+        )
+    else:
+        # Create an invited placeholder
+        new_member = TeamMember(
+            user_id=str(uuid.uuid4()),
+            name=invite_data.email.split("@")[0],
+            email=invite_data.email,
+            role=invite_data.role,
+            status="invited"
+        )
+    
+    await db.teams.update_one(
+        {"id": team_id},
+        {"$push": {"members": new_member.dict()}}
+    )
+    
+    return {"message": f"Invitation sent to {invite_data.email}", "member": new_member.dict()}

@@ -27,10 +27,7 @@ const Sidebar = () => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center mb-4">
-          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
-          <span className="ml-2 text-lg font-bold text-gray-800">Acuity</span>
+          <img src="/acuity-logo.png" alt="Acuity Professional" className="h-8 object-contain" data-testid="sidebar-logo" />
         </div>
         
         {/* Workspace Selector */}
@@ -65,6 +62,7 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
+            data-testid="sidebar-home-btn"
             onClick={() => navigate('/workspaces')}
           >
             <Home className="h-4 w-4 mr-3" />
@@ -73,6 +71,7 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
+            data-testid="sidebar-team-btn"
             onClick={() => navigate('/team')}
           >
             <Users className="h-4 w-4 mr-3" />
@@ -81,7 +80,8 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/boards`)}
+            data-testid="sidebar-boards-btn"
+            onClick={() => navigate('/workspaces')}
           >
             <LayoutGrid className="h-4 w-4 mr-3" />
             Boards

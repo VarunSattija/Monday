@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Trash2, MessageSquare } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -13,9 +13,11 @@ import PersonCell from './cells/PersonCell';
 import DateCell from './cells/DateCell';
 import TextCell from './cells/TextCell';
 import ColumnSettingsMenu from './ColumnSettingsMenu';
+import ItemDetailDialog from './ItemDetailDialog';
 
 const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem, onRefresh }) => {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const toggleGroup = (groupId) => {
     const newCollapsed = new Set(collapsedGroups);
@@ -178,6 +180,10 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => setSelectedItem(item)}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Comments
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-red-600"
                               onClick={() => onDeleteItem(item.id)}
@@ -188,12 +194,21 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      <div className="w-64 flex-shrink-0 px-4 py-3 border-r border-gray-100">
+                      <div className="w-64 flex-shrink-0 px-4 py-3 border-r border-gray-100 flex items-center gap-1">
                         <Input
                           value={item.name}
                           onChange={(e) => onUpdateItem(item.id, { name: e.target.value })}
-                          className="border-0 shadow-none focus-visible:ring-0 h-8 px-2 -ml-2"
+                          className="border-0 shadow-none focus-visible:ring-0 h-8 px-2 -ml-2 flex-1"
                         />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-orange-500 flex-shrink-0"
+                          onClick={() => setSelectedItem(item)}
+                          data-testid={`open-comments-${item.id}`}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                       {board.columns?.slice(1).map((column) => (
                         <div
@@ -243,6 +258,10 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setSelectedItem(item)}>
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Comments
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => onDeleteItem(item.id)}
@@ -253,12 +272,20 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <div className="w-64 flex-shrink-0 px-4 py-3 border-r border-gray-100">
+                  <div className="w-64 flex-shrink-0 px-4 py-3 border-r border-gray-100 flex items-center gap-1">
                     <Input
                       value={item.name}
                       onChange={(e) => onUpdateItem(item.id, { name: e.target.value })}
-                      className="border-0 shadow-none focus-visible:ring-0 h-8 px-2 -ml-2"
+                      className="border-0 shadow-none focus-visible:ring-0 h-8 px-2 -ml-2 flex-1"
                     />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-orange-500 flex-shrink-0"
+                      onClick={() => setSelectedItem(item)}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                   {board.columns?.slice(1).map((column) => (
                     <div
@@ -275,6 +302,13 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
           )}
         </div>
       </div>
+
+      {/* Item Detail / Comment Dialog */}
+      <ItemDetailDialog
+        item={selectedItem}
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+      />
     </div>
   );
 };

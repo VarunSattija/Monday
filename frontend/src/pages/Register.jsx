@@ -21,7 +21,7 @@ const Register = () => {
     try {
       await register(email, password, name);
       toast({ title: 'Success', description: 'Account created successfully!' });
-      navigate('/workspaces');
+      navigate('/select-company');
     } catch (error) {
       toast({
         title: 'Error',
@@ -38,10 +38,7 @@ const Register = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">A</span>
-            </div>
-            <span className="ml-3 text-2xl font-bold text-gray-800">Acuity</span>
+            <img src="/acuity-logo.png" alt="Acuity Professional" className="h-12 object-contain" data-testid="register-logo" />
           </div>
           <CardTitle className="text-2xl text-center">Create your account</CardTitle>
           <CardDescription className="text-center">

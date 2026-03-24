@@ -39,9 +39,7 @@ const CompanySelection = () => {
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
+            <img src="/acuity-logo.png" alt="Acuity Professional" className="h-16 object-contain" data-testid="company-selection-logo" />
           </div>
           <CardTitle className="text-2xl text-center">Select Your Company</CardTitle>
           <CardDescription className="text-center">

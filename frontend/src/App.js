@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettingsPage';
 import AIAgentsPage from './pages/AIAgentsPage';
 import AIAgentCreation from './pages/AIAgentCreation';
 import TeamPage from './pages/TeamPage';
+import CompanySelection from './pages/CompanySelection';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -45,6 +46,14 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route
+                path="/select-company"
+                element={
+                  <ProtectedRoute>
+                    <CompanySelection />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/workspaces"
                 element={
