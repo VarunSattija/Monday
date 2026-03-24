@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, Bell, Search, ChevronDown, Plus, Brain } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, Zap, Bell, Search, ChevronDown, Plus, Brain, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -73,7 +73,15 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate(`/workspaces/${currentWorkspace?.id}/boards`)}
+            onClick={() => navigate('/team')}
+          >
+            <Users className="h-4 w-4 mr-3" />
+            Team
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/boards`)}
           >
             <LayoutGrid className="h-4 w-4 mr-3" />
             Boards
@@ -81,7 +89,7 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate(`/workspaces/${currentWorkspace?.id}/dashboards`)}
+            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/dashboards`)}
           >
             <BarChart3 className="h-4 w-4 mr-3" />
             Dashboards
@@ -89,7 +97,7 @@ const Sidebar = () => {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate(`/workspaces/${currentWorkspace?.id}/automations`)}
+            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/automations`)}
           >
             <Zap className="h-4 w-4 mr-3" />
             Automations

@@ -41,6 +41,55 @@ async def register(user_data: UserCreate):
     )
     await db.workspaces.insert_one(default_workspace.dict())
     
+    # Add user to Acuity-Professional team (create if doesn't exist)
+    import uuid
+    acuity_team = await db.teams.find_one({"name": "Acuity-Professional"})
+    
+    if not acuity_team:
+        # Create the Acuity-Professional team
+        from datetime import datetime
+        acuity_team = {
+            "id": str(uuid.uuid4()),
+            "name": "Acuity-Professional",
+            "description": "Default team for all Acuity Professional users",
+            "members": [
+                {
+                    "user_id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role": "admin",  # First user is admin
+                    "status": "active",
+                    "joined_at": datetime.utcnow(),
+                    "avatar": user.avatar
+                }
+            ],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db.teams.insert_one(acuity_team)
+    else:
+        # Add user to existing team
+        member_exists = any(
+            member["user_id"] == user.id
+            for member in acuity_team.get("members", [])
+        )
+        
+        if not member_exists:
+            from datetime import datetime
+            new_member = {
+                "user_id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": "member",
+                "status": "active",
+                "joined_at": datetime.utcnow(),
+                "avatar": user.avatar
+            }
+            await db.teams.update_one(
+                {"id": acuity_team["id"]},
+                {"$push": {"members": new_member}}
+            )
+    
     # Create access token
     access_token = create_access_token(
         data={"sub": user.id, "email": user.email}

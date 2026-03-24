@@ -15,6 +15,7 @@ import AutomationsPage from './pages/AutomationsPage';
 import SettingsPage from './pages/SettingsPage';
 import AIAgentsPage from './pages/AIAgentsPage';
 import AIAgentCreation from './pages/AIAgentCreation';
+import TeamPage from './pages/TeamPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +50,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <WorkspacesHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/team"
+                element={
+                  <ProtectedRoute>
+                    <TeamPage />
                   </ProtectedRoute>
                 }
               />
