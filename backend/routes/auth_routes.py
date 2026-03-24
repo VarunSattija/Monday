@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from models import UserCreate, UserLogin, User, UserInDB
 from auth import get_password_hash, verify_password, create_access_token, get_current_user
 from database import get_db
@@ -41,55 +41,7 @@ async def register(user_data: UserCreate):
     )
     await db.workspaces.insert_one(default_workspace.dict())
     
-    # Add user to Acuity-Professional team (create if doesn't exist)
-    import uuid
-    acuity_team = await db.teams.find_one({"name": "Acuity-Professional"})
-    
-    if not acuity_team:
-        # Create the Acuity-Professional team
-        from datetime import datetime
-        acuity_team = {
-            "id": str(uuid.uuid4()),
-            "name": "Acuity-Professional",
-            "description": "Default team for all Acuity Professional users",
-            "members": [
-                {
-                    "user_id": user.id,
-                    "name": user.name,
-                    "email": user.email,
-                    "role": "admin",  # First user is admin
-                    "status": "active",
-                    "joined_at": datetime.utcnow(),
-                    "avatar": user.avatar
-                }
-            ],
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        await db.teams.insert_one(acuity_team)
-    else:
-        # Add user to existing team
-        member_exists = any(
-            member["user_id"] == user.id
-            for member in acuity_team.get("members", [])
-        )
-        
-        if not member_exists:
-            from datetime import datetime
-            new_member = {
-                "user_id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "role": "member",
-                "status": "active",
-                "joined_at": datetime.utcnow(),
-                "avatar": user.avatar
-            }
-            await db.teams.update_one(
-                {"id": acuity_team["id"]},
-                {"$push": {"members": new_member}}
-            )
-    
+    # Note: Team assignment will be done after company selection
     # Create access token
     access_token = create_access_token(
         data={"sub": user.id, "email": user.email}
@@ -98,8 +50,59 @@ async def register(user_data: UserCreate):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user.dict()
+        "user": user.dict(),
+        "requires_company_selection": True
     }
+
+
+@router.post("/select-company")
+async def select_company(
+    company_name: str,
+    current_user: dict = Depends(get_current_user)
+):
+    # Add user to selected company team
+    import uuid
+    from datetime import datetime
+    
+    team = await db.teams.find_one({"name": company_name})
+    
+    if not team:
+        # Create the team
+        team = {
+            "id": str(uuid.uuid4()),
+            "name": company_name,
+            "description": f"Team for {company_name}",
+            "members": [],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db.teams.insert_one(team)
+    
+    # Get user details
+    user_data = await db.users.find_one({"id": current_user["id"]})
+    
+    # Check if user already in team
+    member_exists = any(
+        member["user_id"] == current_user["id"]
+        for member in team.get("members", [])
+    )
+    
+    if not member_exists:
+        new_member = {
+            "user_id": current_user["id"],
+            "name": user_data.get("name", "Unknown"),
+            "email": user_data.get("email"),
+            "role": "admin" if len(team.get("members", [])) == 0 else "member",
+            "status": "active",
+            "joined_at": datetime.utcnow(),
+            "avatar": user_data.get("avatar")
+        }
+        await db.teams.update_one(
+            {"id": team["id"] if isinstance(team, dict) else team.get("id")},
+            {"$push": {"members": new_member}}
+        )
+    
+    return {"message": "Company selected successfully", "company": company_name}
 
 
 @router.post("/login")
@@ -146,3 +149,16 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     
     user = User(**{k: v for k, v in user_data.items() if k != 'hashed_password'})
     return user.dict()
+
+
+@router.delete("/users/delete-by-domain")
+async def delete_users_by_domain(domain: str):
+    # Delete all users with specified email domain
+    result = await db.users.delete_many({
+        "email": {"$regex": f"@{domain}$", "$options": "i"}
+    })
+    
+    return {
+        "message": f"Deleted {result.deleted_count} users with domain @{domain}",
+        "count": result.deleted_count
+    }
