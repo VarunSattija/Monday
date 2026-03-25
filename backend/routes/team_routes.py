@@ -269,3 +269,93 @@ async def invite_member_by_email(
     )
     
     return {"message": f"Invitation sent to {invite_data.email}", "member": new_member.dict()}
+
+
+
+@router.get("/join-info/{team_slug}")
+async def get_join_info(team_slug: str):
+    """Public endpoint - returns basic team info for the join page."""
+    import re
+    # Normalize slug: remove non-alphanumeric, lowercase
+    normalized = re.sub(r'[^a-z0-9]', '', team_slug.lower())
+    
+    # Find team by normalized name match
+    teams = await db.teams.find({}).to_list(100)
+    team = None
+    for t in teams:
+        t_normalized = re.sub(r'[^a-z0-9]', '', t["name"].lower())
+        if t_normalized == normalized:
+            team = t
+            break
+    
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    active_count = sum(1 for m in team.get("members", []) if m.get("status") == "active")
+    return {
+        "name": team["name"],
+        "id": team["id"],
+        "description": team.get("description", ""),
+        "member_count": active_count
+    }
+
+
+@router.post("/join/{team_slug}")
+async def join_team_via_link(
+    team_slug: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Authenticated endpoint - adds the current user to the team."""
+    import re
+    normalized = re.sub(r'[^a-z0-9]', '', team_slug.lower())
+    
+    teams = await db.teams.find({}).to_list(100)
+    team = None
+    for t in teams:
+        t_normalized = re.sub(r'[^a-z0-9]', '', t["name"].lower())
+        if t_normalized == normalized:
+            team = t
+            break
+    
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Check if already a member
+    is_member = any(
+        m["user_id"] == current_user["id"] and m.get("status") == "active"
+        for m in team.get("members", [])
+    )
+    if is_member:
+        raise HTTPException(status_code=400, detail="Already a member of this team")
+    
+    # Check if there's a pending invite for this email
+    was_invited = any(
+        m.get("email") == current_user["email"] and m.get("status") == "invited"
+        for m in team.get("members", [])
+    )
+    
+    if was_invited:
+        await db.teams.update_one(
+            {"id": team["id"], "members.email": current_user["email"], "members.status": "invited"},
+            {"$set": {
+                "members.$.status": "active",
+                "members.$.user_id": current_user["id"],
+                "members.$.name": current_user.get("name", ""),
+                "members.$.avatar": current_user.get("avatar", ""),
+                "members.$.joined_at": datetime.utcnow()
+            }}
+        )
+    else:
+        new_member = TeamMember(
+            user_id=current_user["id"],
+            name=current_user.get("name", "Unknown"),
+            email=current_user["email"],
+            role="member",
+            status="active"
+        )
+        await db.teams.update_one(
+            {"id": team["id"]},
+            {"$push": {"members": new_member.dict()}}
+        )
+    
+    return {"message": f"Successfully joined {team['name']}"}
