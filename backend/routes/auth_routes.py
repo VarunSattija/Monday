@@ -57,25 +57,40 @@ async def register(user_data: UserCreate):
         await db.teams.insert_one(team)
     
     is_first = len(team.get("members", [])) == 0
-    new_member = {
-        "user_id": user.id,
-        "name": user_data.name,
-        "email": user_data.email,
-        "role": "admin" if is_first else "member",
-        "status": "active",
-        "joined_at": datetime.utcnow(),
-        "avatar": user.avatar
-    }
-    await db.teams.update_one(
-        {"name": "Acuity-Professional"},
-        {"$push": {"members": new_member}}
+    
+    # Check if this email was previously invited
+    was_invited = any(
+        m.get("email") == user_data.email and m.get("status") == "invited"
+        for m in team.get("members", [])
     )
     
-    # Check if this email was previously invited - update status
-    await db.teams.update_one(
-        {"name": "Acuity-Professional", "members.email": user_data.email, "members.status": "invited"},
-        {"$set": {"members.$.status": "active", "members.$.user_id": user.id, "members.$.name": user_data.name}}
-    )
+    if was_invited:
+        # Update existing invited entry to active
+        await db.teams.update_one(
+            {"name": "Acuity-Professional", "members.email": user_data.email, "members.status": "invited"},
+            {"$set": {
+                "members.$.status": "active",
+                "members.$.user_id": user.id,
+                "members.$.name": user_data.name,
+                "members.$.avatar": user.avatar,
+                "members.$.joined_at": datetime.utcnow()
+            }}
+        )
+    else:
+        # Add new member
+        new_member = {
+            "user_id": user.id,
+            "name": user_data.name,
+            "email": user_data.email,
+            "role": "admin" if is_first else "member",
+            "status": "active",
+            "joined_at": datetime.utcnow(),
+            "avatar": user.avatar
+        }
+        await db.teams.update_one(
+            {"name": "Acuity-Professional"},
+            {"$push": {"members": new_member}}
+        )
     
     # Create access token
     access_token = create_access_token(

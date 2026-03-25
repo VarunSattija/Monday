@@ -36,56 +36,73 @@ Build a replica of monday.com with the branding (logo and theme) of Acuity Profe
 - Automations engine (scaffold)
 - Settings page with multiple tabs
 
+### Column Operations (NEW - Complete)
+- **Rename** column via dialog
+- **Delete** column (removes column + all data)
+- **Sort** items ascending/descending by column
+- **Filter** items by column value
+- **Collapse** (hide) column
+- **Group by** column values
+- **Add column to the right** - inserts after selected column
+- **Change column type** (text, status, priority, person, date, etc.)
+- **Duplicate column** - copies column with data
+
 ### Authentication & User Flow (Complete)
 - JWT-based Login/Register
-- Company selection page after signup (redirects to /select-company)
-- Automatic team assignment to "Acuity-Professional" on company selection
-- First user becomes admin of the team
+- **Auto-add to Acuity-Professional team on signup** (first user = admin, rest = member)
+- Previously invited users get their status upgraded to active when they register
+- Logo displayed on Login, Register, Sidebar
 
 ### Team Management (Complete)
 - Team page with member stats (Total, Active, Invited, Removed)
-- Invite members by email (admin-only)
-- Pending invitations section
+- **Any team member can invite** others by email (not just admin)
+- Pending invitations section with status tracking
 - Role management (admin/member)
 - Remove members functionality
+- **Invite from multiple places**: Team page, Home page, Settings Members tab
 
 ### Item Comments (Complete)
-- Comment icon on each item row in table view
+- Comment icon on each item row with **count badge**
 - Slide-in detail dialog with comment feed
 - Add/delete comments
 - Real-time comment list with user attribution
+- Comment count API endpoint (GET /api/updates/counts/board/{board_id})
 
-### Branding (Complete)
-- Acuity Professional logo on Login, Register, Sidebar, Company Selection
-- Logo stored at /public/acuity-logo.png (easy to swap/placeholder)
-- Orange/amber gradient theme throughout
+### Home Page (Complete)
+- Welcome section with workspace name
+- Quick action cards: Create Board, View Dashboards, Add Automation, **Invite People**
+- **Invite People button in header**
+- Recent boards grid
+- Empty state with CTA
 
 ### Navigation (Fixed)
 - Sidebar Home -> /workspaces
 - Sidebar Boards -> /workspaces
 - Sidebar Team -> /team
-- Board context menu, column settings, invite to board
+- All sidebar buttons with data-testid
 
 ## Key API Endpoints
-- POST /api/auth/register, /api/auth/login, /api/auth/select-company
+- POST /api/auth/register (auto-adds to team)
+- POST /api/auth/login
 - GET/POST /api/workspaces, /api/boards, /api/items, /api/groups
-- POST /api/teams/{id}/invite (invite by email)
-- GET /api/teams/by-name/{name}
-- POST /api/updates (create comment), GET /api/updates/item/{id}
+- PUT /api/boards/{id}/columns/{col_id}?title=X&column_type=Y (rename/change type)
+- DELETE /api/boards/{id}/columns/{col_id} (delete column)
+- POST /api/boards/{id}/columns/{col_id}/duplicate
+- POST /api/boards/{id}/columns?after_column_id=X (add column after)
+- POST /api/teams/{id}/invite (any member can invite)
+- GET /api/updates/counts/board/{id} (comment counts)
 
-## Test Credentials
-- Test user: admin_75257@acuity.com / Test1234
+## Testing Status
+- Backend: 15/15 (100%) - iteration 2
+- Frontend: 14/18 (78%) - iteration 2
 
-## P0 - Remaining/Next Tasks
-- Activity log population (backend logging integration)
-- Settings page member invite (wire to backend)
-
-## P1 - Upcoming Tasks
-- Email notifications in automations (needs email service integration)
-- Finalize AI Agent functionality (currently scaffolded)
+## P1 - Next Tasks
+- Activity log population (integrate logging into backend CRUD endpoints)
+- File column with upload capability (needs object storage integration)
+- Email notifications in automations (needs email service)
 
 ## P2 - Future Tasks
-- Column-level and board-level permissions
-- File uploads in comments (up to 500MB)
+- Finalize AI Agent functionality
+- Column-level and board-level permissions enforcement
 - Board duplication with/without items
-- React hooks dependency warnings cleanup
+- Ownership transfer in Settings
