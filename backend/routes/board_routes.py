@@ -126,18 +126,150 @@ async def delete_board(
 async def add_column(
     board_id: str,
     column: BoardColumn,
+    after_column_id: str = None,
     current_user: dict = Depends(get_current_user)
 ):
     board = await db.boards.find_one({"id": board_id})
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
     
-    await db.boards.update_one(
-        {"id": board_id},
-        {"$push": {"columns": column.dict()}}
-    )
+    if after_column_id:
+        # Insert after the specified column
+        columns = board.get("columns", [])
+        insert_idx = len(columns)
+        for i, col in enumerate(columns):
+            if col["id"] == after_column_id:
+                insert_idx = i + 1
+                break
+        columns.insert(insert_idx, column.dict())
+        await db.boards.update_one(
+            {"id": board_id},
+            {"$set": {"columns": columns}}
+        )
+    else:
+        await db.boards.update_one(
+            {"id": board_id},
+            {"$push": {"columns": column.dict()}}
+        )
     
     return {"message": "Column added successfully"}
+
+
+@router.put("/{board_id}/columns/{column_id}")
+async def update_column(
+    board_id: str,
+    column_id: str,
+    title: str = None,
+    column_type: str = None,
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    columns = board.get("columns", [])
+    updated = False
+    for col in columns:
+        if col["id"] == column_id:
+            if title is not None:
+                col["title"] = title
+            if column_type is not None:
+                col["type"] = column_type
+                # Reset options for new type
+                if column_type == "status":
+                    col["options"] = [
+                        {"id": "1", "label": "Working on it", "color": "#fdab3d"},
+                        {"id": "2", "label": "Done", "color": "#00c875"},
+                        {"id": "3", "label": "Stuck", "color": "#e2445c"},
+                        {"id": "4", "label": "", "color": "#c4c4c4"}
+                    ]
+                elif column_type == "priority":
+                    col["options"] = [
+                        {"id": "1", "label": "Critical", "color": "#333333"},
+                        {"id": "2", "label": "High", "color": "#401694"},
+                        {"id": "3", "label": "Medium", "color": "#5559df"},
+                        {"id": "4", "label": "Low", "color": "#579bfc"},
+                        {"id": "5", "label": "", "color": "#c4c4c4"}
+                    ]
+                else:
+                    col["options"] = []
+            updated = True
+            break
+    
+    if not updated:
+        raise HTTPException(status_code=404, detail="Column not found")
+    
+    await db.boards.update_one(
+        {"id": board_id},
+        {"$set": {"columns": columns, "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"message": "Column updated successfully"}
+
+
+@router.delete("/{board_id}/columns/{column_id}")
+async def delete_column(
+    board_id: str,
+    column_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    columns = [col for col in board.get("columns", []) if col["id"] != column_id]
+    
+    await db.boards.update_one(
+        {"id": board_id},
+        {"$set": {"columns": columns, "updated_at": datetime.utcnow()}}
+    )
+    
+    # Remove column values from all items
+    await db.items.update_many(
+        {"board_id": board_id},
+        {"$unset": {f"column_values.{column_id}": ""}}
+    )
+    
+    return {"message": "Column deleted successfully"}
+
+
+@router.post("/{board_id}/columns/{column_id}/duplicate")
+async def duplicate_column(
+    board_id: str,
+    column_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    columns = board.get("columns", [])
+    source_col = None
+    source_idx = 0
+    for i, col in enumerate(columns):
+        if col["id"] == column_id:
+            source_col = col
+            source_idx = i
+            break
+    
+    if not source_col:
+        raise HTTPException(status_code=404, detail="Column not found")
+    
+    import uuid as _uuid
+    new_col = BoardColumn(
+        title=f"{source_col['title']} (Copy)",
+        type=source_col["type"],
+        width=source_col.get("width", 150),
+        options=[ColumnOption(**opt) for opt in source_col.get("options", [])]
+    )
+    columns.insert(source_idx + 1, new_col.dict())
+    
+    await db.boards.update_one(
+        {"id": board_id},
+        {"$set": {"columns": columns, "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"message": "Column duplicated successfully"}
 
 
 @router.post("/{board_id}/duplicate")

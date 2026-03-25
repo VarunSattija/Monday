@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from models import UserCreate, UserLogin, User, UserInDB
 from auth import get_password_hash, verify_password, create_access_token, get_current_user
 from database import get_db
+from datetime import datetime
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 db = get_db()
@@ -41,7 +42,41 @@ async def register(user_data: UserCreate):
     )
     await db.workspaces.insert_one(default_workspace.dict())
     
-    # Note: Team assignment will be done after company selection
+    # Auto-add user to Acuity-Professional team
+    import uuid as _uuid
+    team = await db.teams.find_one({"name": "Acuity-Professional"})
+    if not team:
+        team = {
+            "id": str(_uuid.uuid4()),
+            "name": "Acuity-Professional",
+            "description": "Default team for Acuity Professional users",
+            "members": [],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db.teams.insert_one(team)
+    
+    is_first = len(team.get("members", [])) == 0
+    new_member = {
+        "user_id": user.id,
+        "name": user_data.name,
+        "email": user_data.email,
+        "role": "admin" if is_first else "member",
+        "status": "active",
+        "joined_at": datetime.utcnow(),
+        "avatar": user.avatar
+    }
+    await db.teams.update_one(
+        {"name": "Acuity-Professional"},
+        {"$push": {"members": new_member}}
+    )
+    
+    # Check if this email was previously invited - update status
+    await db.teams.update_one(
+        {"name": "Acuity-Professional", "members.email": user_data.email, "members.status": "invited"},
+        {"$set": {"members.$.status": "active", "members.$.user_id": user.id, "members.$.name": user_data.name}}
+    )
+    
     # Create access token
     access_token = create_access_token(
         data={"sub": user.id, "email": user.email}
@@ -50,8 +85,7 @@ async def register(user_data: UserCreate):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user.dict(),
-        "requires_company_selection": True
+        "user": user.dict()
     }
 
 

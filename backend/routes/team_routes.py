@@ -223,14 +223,14 @@ async def invite_member_by_email(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Check if current user is admin
-    is_admin = any(
-        member["user_id"] == current_user["id"] and member["role"] == "admin"
+    # Check if current user is a team member
+    is_member = any(
+        member["user_id"] == current_user["id"]
         for member in team.get("members", [])
     )
     
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Only admins can invite members")
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Only team members can invite others")
     
     # Check if email is already in team
     member_exists = any(

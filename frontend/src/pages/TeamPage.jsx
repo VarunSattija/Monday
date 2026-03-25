@@ -132,16 +132,14 @@ const TeamPage = () => {
     <Layout
       title="Team"
       actions={
-        isAdmin && (
-          <Button
-            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-            onClick={() => setShowInviteDialog(true)}
-            data-testid="invite-members-btn"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Invite Members
-          </Button>
-        )
+        <Button
+          className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+          onClick={() => setShowInviteDialog(true)}
+          data-testid="invite-members-btn"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Invite Members
+        </Button>
       }
     >
       <div className="p-8 space-y-6">
@@ -278,7 +276,7 @@ const TeamPage = () => {
                     >
                       {member.status}
                     </Badge>
-                    {isAdmin && member.user_id !== user?.id && (
+                    {member.user_id !== user?.id && (
                       <>
                         <Select
                           value={member.role}
@@ -292,13 +290,15 @@ const TeamPage = () => {
                             <SelectItem value="member">Member</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMember(member.user_id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.user_id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
@@ -340,15 +340,13 @@ const TeamPage = () => {
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-300">
                         Invited
                       </Badge>
-                      {isAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMember(member.user_id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMember(member.user_id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
                   </div>
                 ))}

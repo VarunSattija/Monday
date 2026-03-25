@@ -21,7 +21,7 @@ const Register = () => {
     try {
       await register(email, password, name);
       toast({ title: 'Success', description: 'Account created successfully!' });
-      navigate('/select-company');
+      navigate('/workspaces');
     } catch (error) {
       toast({
         title: 'Error',

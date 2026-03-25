@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -19,48 +19,151 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import {
   Settings as SettingsIcon,
-  User,
-  CreditCard,
-  Calendar,
-  Palette,
-  Users,
-  Shield,
-  Brain,
-  Link,
-  DollarSign,
-  BarChart3,
-  Trash2,
-  FolderOpen,
-  Box,
   Lock,
   UserPlus,
   Crown,
   ArrowRightLeft,
+  Users,
+  Palette,
+  Shield,
+  Brain,
+  X,
+  Mail,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../hooks/use-toast';
+import api from '../config/api';
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const { boardId } = useParams();
-  const [boardMembers, setBoardMembers] = useState([
-    { id: '1', name: 'John Smith', email: 'john@acuity.com', role: 'owner', avatar: null },
-  ]);
+  const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [inviting, setInviting] = useState(false);
 
-  const handleChangeRole = (memberId, newRole) => {
-    setBoardMembers(
-      boardMembers.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
-    );
-    toast({ title: 'Success', description: 'Member role updated!' });
+  useEffect(() => {
+    fetchTeam();
+  }, []);
+
+  const fetchTeam = async () => {
+    try {
+      const response = await api.get('/teams/by-name/Acuity-Professional');
+      setTeam(response.data);
+    } catch (error) {
+      console.error('Error fetching team:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleTransferOwnership = (memberId) => {
-    toast({ title: 'Success', description: 'Ownership transferred!' });
+  const teamMembers = team?.members?.filter((m) => m.status !== 'removed') || [];
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !team) return;
+    try {
+      setInviting(true);
+      await api.post(`/teams/${team.id}/invite`, {
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      toast({ title: 'Success', description: `Invitation sent to ${inviteEmail}` });
+      setInviteEmail('');
+      setInviteRole('member');
+      setShowInviteDialog(false);
+      fetchTeam();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Failed to send invitation',
+        variant: 'destructive',
+      });
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleChangeRole = async (member, newRole) => {
+    if (!team) return;
+    try {
+      await api.put(`/teams/${team.id}/members/${member.user_id}/role?role=${newRole}`);
+      toast({ title: 'Success', description: 'Role updated!' });
+      fetchTeam();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update role', variant: 'destructive' });
+    }
+  };
+
+  const handleRemoveMember = async (member) => {
+    if (!team) return;
+    if (!window.confirm(`Remove ${member.name || member.email}?`)) return;
+    try {
+      await api.delete(`/teams/${team.id}/members/${member.user_id}`);
+      toast({ title: 'Success', description: 'Member removed!' });
+      fetchTeam();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to remove member', variant: 'destructive' });
+    }
   };
 
   return (
     <Layout title="Settings">
       <div className="h-full overflow-auto">
+        {/* Invite Dialog */}
+        {showInviteDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" data-testid="settings-invite-dialog">
+            <div className="fixed inset-0 bg-black/30" onClick={() => setShowInviteDialog(false)} />
+            <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Invite Team Member</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowInviteDialog(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Email Address</Label>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-400" />
+                    <Input
+                      type="email"
+                      placeholder="colleague@company.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                      data-testid="settings-invite-email"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                  disabled={inviting}
+                  data-testid="settings-send-invite-btn"
+                >
+                  {inviting ? 'Sending...' : 'Send Invitation'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
+
         <Tabs defaultValue="general" className="w-full">
           <div className="border-b bg-white sticky top-0 z-10">
             <div className="px-8 py-4">
@@ -152,30 +255,6 @@ const SettingsPage = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Work Schedule</CardTitle>
-                  <CardDescription>
-                    Set your working hours <Badge variant="secondary">Beta</Badge>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Start Time</Label>
-                      <Input type="time" defaultValue="09:00" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>End Time</Label>
-                      <Input type="time" defaultValue="17:00" />
-                    </div>
-                  </div>
-                  <Button className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700">
-                    Save Schedule
-                  </Button>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* Permissions Tab */}
@@ -187,13 +266,13 @@ const SettingsPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
-                    {boardMembers.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    {teamMembers.slice(0, 5).map((member) => (
+                      <div key={member.user_id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={member.avatar} />
                             <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">
-                              {member.name.charAt(0)}
+                              {(member.name || member.email)?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -202,34 +281,25 @@ const SettingsPage = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Select
-                            value={member.role}
-                            onValueChange={(value) => handleChangeRole(member.id, value)}
-                          >
+                          <Select value={member.role} onValueChange={(val) => handleChangeRole(member, val)}>
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="owner">
-                                <div className="flex items-center gap-2">
-                                  <Crown className="h-4 w-4" />
-                                  Owner
-                                </div>
+                              <SelectItem value="admin">
+                                <div className="flex items-center gap-2"><Crown className="h-4 w-4" />Owner</div>
                               </SelectItem>
                               <SelectItem value="member">Member</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
                             </SelectContent>
                           </Select>
-                          {member.role === 'owner' && (
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                              Owner
-                            </Badge>
+                          {member.role === 'admin' && (
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-700">Admin</Badge>
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full" onClick={() => setShowInviteDialog(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Add Member
                   </Button>
@@ -252,19 +322,12 @@ const SettingsPage = () => {
                           <SelectValue placeholder="Select new owner" />
                         </SelectTrigger>
                         <SelectContent>
-                          {boardMembers
-                            .filter((m) => m.role !== 'owner')
-                            .map((member) => (
-                              <SelectItem key={member.id} value={member.id}>
-                                {member.name}
-                              </SelectItem>
-                            ))}
+                          {teamMembers.filter((m) => m.user_id !== user?.id).map((member) => (
+                            <SelectItem key={member.user_id} value={member.user_id}>{member.name || member.email}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleTransferOwnership('1')}
-                      >
+                      <Button variant="outline">
                         <ArrowRightLeft className="h-4 w-4 mr-2" />
                         Transfer
                       </Button>
@@ -278,88 +341,89 @@ const SettingsPage = () => {
             <TabsContent value="members" className="space-y-6 mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Team Members</CardTitle>
+                  <CardTitle>Team Members ({teamMembers.length})</CardTitle>
                   <CardDescription>Manage access for your team</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Input placeholder="Search members..." className="max-w-sm" />
-                    <Button className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700">
+                    <Button
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                      onClick={() => setShowInviteDialog(true)}
+                      data-testid="settings-invite-member-btn"
+                    >
                       <UserPlus className="h-4 w-4 mr-2" />
                       Invite Member
                     </Button>
                   </div>
-                  <div className="space-y-2">
-                    {boardMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">
-                              {member.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{member.name}</p>
-                            <p className="text-sm text-gray-500">{member.email}</p>
+                  {loading ? (
+                    <div className="text-center py-8 text-gray-400">Loading members...</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {teamMembers.map((member) => (
+                        <div
+                          key={member.user_id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                          data-testid={`settings-member-${member.user_id}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={member.avatar} />
+                              <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+                                {(member.name || member.email)?.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.name || member.email}</p>
+                              <p className="text-sm text-gray-500">{member.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={member.status === 'invited' ? 'secondary' : 'default'} className={member.status === 'invited' ? 'bg-blue-100 text-blue-700' : ''}>
+                              {member.status === 'invited' ? 'Invited' : member.role}
+                            </Badge>
+                            <Select value={member.role} onValueChange={(val) => handleChangeRole(member, val)}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="member">Member</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {member.user_id !== user?.id && (
+                              <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(member)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge>{member.role}</Badge>
-                          <Select defaultValue={member.role}>
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="owner">Owner</SelectItem>
-                              <SelectItem value="member">Member</SelectItem>
-                              <SelectItem value="viewer">Viewer (Read-only)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Other tabs with placeholder content */}
+            {/* Other tabs */}
             <TabsContent value="customization">
               <Card>
-                <CardHeader>
-                  <CardTitle>Customization</CardTitle>
-                  <CardDescription>Personalize your workspace</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">Customization options coming soon...</p>
-                </CardContent>
+                <CardHeader><CardTitle>Customization</CardTitle><CardDescription>Personalize your workspace</CardDescription></CardHeader>
+                <CardContent><p className="text-gray-500">Customization options coming soon...</p></CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="security">
               <Card>
-                <CardHeader>
-                  <CardTitle>Security Settings</CardTitle>
-                  <CardDescription>Manage security and access control</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">Security settings coming soon...</p>
-                </CardContent>
+                <CardHeader><CardTitle>Security Settings</CardTitle><CardDescription>Manage security and access control</CardDescription></CardHeader>
+                <CardContent><p className="text-gray-500">Security settings coming soon...</p></CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="ai">
               <Card>
-                <CardHeader>
-                  <CardTitle>AI Governance</CardTitle>
-                  <CardDescription>Control AI features and data usage</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">AI governance settings coming soon...</p>
-                </CardContent>
+                <CardHeader><CardTitle>AI Governance</CardTitle><CardDescription>Control AI features and data usage</CardDescription></CardHeader>
+                <CardContent><p className="text-gray-500">AI governance settings coming soon...</p></CardContent>
               </Card>
             </TabsContent>
           </div>

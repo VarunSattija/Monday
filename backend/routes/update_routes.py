@@ -34,6 +34,31 @@ async def get_item_updates(
     return [Update(**update) for update in updates]
 
 
+@router.get("/counts/board/{board_id}")
+async def get_board_update_counts(
+    board_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    # Get all items for this board
+    items = await db.items.find({"board_id": board_id}, {"id": 1, "_id": 0}).to_list(10000)
+    item_ids = [item["id"] for item in items]
+    
+    if not item_ids:
+        return {}
+    
+    # Aggregate comment counts per item
+    pipeline = [
+        {"$match": {"item_id": {"$in": item_ids}}},
+        {"$group": {"_id": "$item_id", "count": {"$sum": 1}}}
+    ]
+    counts_cursor = db.updates.aggregate(pipeline)
+    counts = {}
+    async for doc in counts_cursor:
+        counts[doc["_id"]] = doc["count"]
+    
+    return counts
+
+
 @router.delete("/{update_id}")
 async def delete_update(
     update_id: str,
