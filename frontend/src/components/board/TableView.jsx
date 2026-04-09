@@ -21,10 +21,12 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [collapsedColumns, setCollapsedColumns] = useState(new Set());
   const [selectedItem, setSelectedItem] = useState(null);
-  const [sortConfig, setSortConfig] = useState(null); // { columnId, direction }
-  const [filterConfig, setFilterConfig] = useState(null); // { columnId, value }
+  const [sortConfig, setSortConfig] = useState(null);
+  const [filterConfig, setFilterConfig] = useState(null);
   const [groupByColumn, setGroupByColumn] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingGroupTitle, setEditingGroupTitle] = useState('');
 
   useEffect(() => {
     if (board?.id) {
@@ -78,6 +80,23 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
       setGroupByColumn(null);
     } else {
       setGroupByColumn(columnId);
+    }
+  };
+
+  const handleRenameGroup = async (groupId) => {
+    if (!editingGroupTitle.trim()) return;
+    try {
+      const group = groups.find((g) => g.id === groupId);
+      await api.put(`/groups/${groupId}`, {
+        title: editingGroupTitle.trim(),
+        board_id: board.id,
+        color: group?.color || '#0086c0',
+      });
+      setEditingGroupId(null);
+      setEditingGroupTitle('');
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error('Error renaming group:', error);
     }
   };
 
@@ -358,7 +377,28 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                       </Button>
                     </div>
                     <div className="flex-1 px-4 py-3 font-semibold text-sm">
-                      {group.title}
+                      {editingGroupId === group.id ? (
+                        <Input
+                          value={editingGroupTitle}
+                          onChange={(e) => setEditingGroupTitle(e.target.value)}
+                          onBlur={() => handleRenameGroup(group.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameGroup(group.id);
+                            if (e.key === 'Escape') { setEditingGroupId(null); setEditingGroupTitle(''); }
+                          }}
+                          autoFocus
+                          className="h-7 w-48 text-sm font-semibold border-orange-300 focus-visible:ring-orange-400"
+                          data-testid={`group-rename-input-${group.id}`}
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-orange-600 transition-colors"
+                          onClick={() => { setEditingGroupId(group.id); setEditingGroupTitle(group.title); }}
+                          data-testid={`group-title-${group.id}`}
+                        >
+                          {group.title}
+                        </span>
+                      )}
                       <span className="ml-2 text-gray-500">({groupItems.length})</span>
                     </div>
                     <div className="px-4">

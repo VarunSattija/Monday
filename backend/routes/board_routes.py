@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
-from models import Board, BoardCreate, BoardColumn, ColumnType, ColumnOption
+from fastapi import APIRouter, HTTPException, Depends, Body
+from models import Board, BoardCreate, BoardColumn, ColumnType, ColumnOption, Group, Item
 from auth import get_current_user
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from database import get_db
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 db = get_db()
+import uuid
 
 
 def get_default_columns():
@@ -161,6 +162,7 @@ async def update_column(
     column_id: str,
     title: str = None,
     column_type: str = None,
+    body: Optional[dict] = Body(None),
     current_user: dict = Depends(get_current_user)
 ):
     board = await db.boards.find_one({"id": board_id})
@@ -193,6 +195,8 @@ async def update_column(
                     ]
                 else:
                     col["options"] = []
+            if body and "options" in body:
+                col["options"] = body["options"]
             updated = True
             break
     
@@ -368,12 +372,17 @@ async def invite_to_board(
     if current_user["id"] not in board.get("member_ids", []) and board["owner_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to invite members")
     
-    # In a real application, you would:
-    # 1. Create an invitation record
-    # 2. Send email to the invited user
-    # 3. When they accept, add them to board
+    # Find user by email
+    invited_user = await db.users.find_one({"email": email})
+    if invited_user:
+        # Add to board member_ids directly
+        if invited_user["id"] not in board.get("member_ids", []):
+            await db.boards.update_one(
+                {"id": board_id},
+                {"$push": {"member_ids": invited_user["id"]}}
+            )
     
-    # For now, we'll simulate this by adding a pending invitation
+    # Also store the invitation for tracking
     invitation = {
         "id": str(uuid.uuid4()),
         "board_id": board_id,
@@ -381,12 +390,52 @@ async def invite_to_board(
         "role": role,
         "invited_by": current_user["id"],
         "invited_at": datetime.utcnow(),
-        "status": "pending"
+        "status": "accepted" if invited_user else "pending"
     }
-    
     await db.board_invitations.insert_one(invitation)
     
     return {"message": "Invitation sent successfully", "invitation": invitation}
+
+
+@router.get("/shared/me")
+async def get_shared_boards(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get boards shared with the current user (not owned by them)."""
+    boards = await db.boards.find({
+        "member_ids": current_user["id"],
+        "owner_id": {"$ne": current_user["id"]}
+    }).to_list(1000)
+    return [Board(**board) for board in boards]
+
+
+@router.post("/{board_id}/share")
+async def share_board_with_team(
+    board_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Share a board with all team members."""
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Get the Acuity team
+    team = await db.teams.find_one({"name": "Acuity-Professional"})
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Add all active team members to the board
+    active_members = [m["user_id"] for m in team.get("members", []) if m.get("status") == "active"]
+    existing_members = set(board.get("member_ids", []))
+    new_members = [uid for uid in active_members if uid not in existing_members]
+    
+    if new_members:
+        await db.boards.update_one(
+            {"id": board_id},
+            {"$push": {"member_ids": {"$each": new_members}}}
+        )
+    
+    return {"message": f"Board shared with {len(new_members)} team members", "added": len(new_members)}
 
 
 @router.delete("/{board_id}/members/{member_id}")

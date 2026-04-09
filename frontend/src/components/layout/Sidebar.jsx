@@ -14,7 +14,7 @@ import {
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
-  const { workspaces, currentWorkspace, setCurrentWorkspace, boards } = useWorkspace();
+  const { workspaces, currentWorkspace, setCurrentWorkspace, boards, sharedBoards } = useWorkspace();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -139,6 +139,29 @@ const Sidebar = () => {
             ))}
           </div>
         </div>
+
+        {/* Shared Boards */}
+        {sharedBoards.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase">Shared with me</h3>
+            </div>
+            <div className="space-y-1">
+              {sharedBoards.map((board) => (
+                <Button
+                  key={board.id}
+                  variant="ghost"
+                  className="w-full justify-start text-sm"
+                  onClick={() => navigate(`/boards/${board.id}`)}
+                  data-testid={`shared-board-${board.id}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                  {board.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User Section */}

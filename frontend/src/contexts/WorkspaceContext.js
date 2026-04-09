@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../config/api';
 import { useAuth } from './AuthContext';
 
@@ -17,9 +17,10 @@ export const WorkspaceProvider = ({ children }) => {
   const [workspaces, setWorkspaces] = useState([]);
   const [currentWorkspace, setCurrentWorkspace] = useState(null);
   const [boards, setBoards] = useState([]);
+  const [sharedBoards, setSharedBoards] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchWorkspaces = async () => {
+  const fetchWorkspaces = useCallback(async () => {
     if (!user) return;
     try {
       setLoading(true);
@@ -33,9 +34,9 @@ export const WorkspaceProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, currentWorkspace]);
 
-  const fetchBoards = async (workspaceId) => {
+  const fetchBoards = useCallback(async (workspaceId) => {
     if (!workspaceId) return;
     try {
       const response = await api.get(`/boards/workspace/${workspaceId}`);
@@ -43,7 +44,17 @@ export const WorkspaceProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching boards:', error);
     }
-  };
+  }, []);
+
+  const fetchSharedBoards = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await api.get('/boards/shared/me');
+      setSharedBoards(response.data);
+    } catch (error) {
+      console.error('Error fetching shared boards:', error);
+    }
+  }, [user]);
 
   const createWorkspace = async (name, description) => {
     try {
@@ -70,14 +81,15 @@ export const WorkspaceProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       fetchWorkspaces();
+      fetchSharedBoards();
     }
-  }, [user]);
+  }, [user, fetchWorkspaces, fetchSharedBoards]);
 
   useEffect(() => {
     if (currentWorkspace) {
       fetchBoards(currentWorkspace.id);
     }
-  }, [currentWorkspace]);
+  }, [currentWorkspace, fetchBoards]);
 
   return (
     <WorkspaceContext.Provider
@@ -86,9 +98,11 @@ export const WorkspaceProvider = ({ children }) => {
         currentWorkspace,
         setCurrentWorkspace,
         boards,
+        sharedBoards,
         loading,
         fetchWorkspaces,
         fetchBoards,
+        fetchSharedBoards,
         createWorkspace,
         createBoard,
       }}

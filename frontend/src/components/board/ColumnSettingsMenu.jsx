@@ -74,10 +74,15 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
     setLabels(labels.filter((label) => label.id !== labelId));
   };
 
-  const handleSaveLabels = () => {
-    onUpdate({ ...column, options: labels });
-    toast({ title: 'Success', description: 'Labels updated successfully!' });
-    setShowEditLabels(false);
+  const handleSaveLabels = async () => {
+    try {
+      await api.put(`/boards/${boardId}/columns/${column.id}`, { options: labels });
+      toast({ title: 'Success', description: 'Labels updated successfully!' });
+      setShowEditLabels(false);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save labels', variant: 'destructive' });
+    }
   };
 
   const handleSavePermissions = () => {
