@@ -1,57 +1,64 @@
 # Acuity Professional - Work Management Platform (monday.com Clone)
 
 ## Original Problem Statement
-Build a replica of monday.com with the branding (logo and theme) of Acuity Professional. Full-stack, feature-rich platform.
+Build a replica of monday.com with the branding (logo and theme) of Acuity Professional.
 
 ## Tech Stack
 - **Frontend**: React, React Router, TailwindCSS, Shadcn UI, Recharts, Axios
-- **Backend**: FastAPI, MongoDB (motor async), Pydantic, JWT auth
+- **Backend**: FastAPI, MongoDB (motor async), Pydantic, JWT auth, openpyxl
 - **Database**: MongoDB
 
 ## What's Been Implemented
 
-### Core Features (Complete)
-- Workspaces, Boards, Groups, Items with full CRUD
-- **Inline group rename** — click group title to edit
-- Multiple views: Table, Kanban, Timeline, Calendar
-- Dashboard with chart widgets
+### Import Boards (NEW)
+- **Excel import**: Upload .xlsx file → headers become columns → rows become items
+- **CSV import**: Upload .csv file → same auto-mapping (works for Monday.com CSV exports)
+- Smart column type detection: status, priority, person, date, text
+- Auto-extracts unique status/priority labels from data
+- Import dialog with drag-and-drop, board name input
+- Available from Home page (Import card + header button) and Sidebar
+
+### Editable Board Name (NEW)
+- Click board title → inline edit → Enter saves
+- Pencil icon hint next to board name
+
+### Workspace Folders (NEW)
+- Create folders within a workspace
+- Rename/delete folders via context menu
+- Move boards into/out of folders
+- Sidebar shows folder tree with boards nested inside
+- Boards without folders shown separately
+
+### Chart View (NEW - replaces Kanban)
+- Add multiple charts per board
+- Chart types: Bar, Pie, Line
+- Select which column to visualize
+- Optional "Group By" secondary column
+- Add/remove charts dynamically
+
+### Previous Features (Complete)
 - Column operations: Rename, Delete, Sort, Filter, Collapse, Group By, Add Right, Change Type, Duplicate
-
-### Status/Priority Labels (Fixed)
-- Edit labels dialog saves to database via PUT endpoint
-- Custom labels persist after refresh
-- Labels show correctly in status dropdown
-
-### Board Collaboration (NEW)
-- **"Share with Team" button** on board page — shares board with all active team members
-- **"Shared with me" section** in sidebar — shows boards shared by others
-- Board invite endpoint adds users to member_ids directly
-- Shared boards accessible by all team members
-
-### Shareable Join Link
-- `/join/Acuityprofessional` — public join page
-- Flexible slug matching (case-insensitive, ignores hyphens)
-- Register or login from join page → auto-join team
-
-### Authentication & Team (Complete)
-- JWT Login/Register with auto-add to Acuity-Professional team
-- Invite from: Team page, Home page, Settings, Join link
-- Any team member can invite others
-
-### Item Comments (Complete)
-- Comment icon per item with count badge
-- Slide-in detail dialog with comment feed
+- Status/Priority labels save to DB
+- Board collaboration: Share with Team, Shared boards sidebar
+- Team invite from multiple places
+- Auto-add to team on signup
+- Shareable join link: /join/Acuityprofessional
+- Item comments with count badges
+- Group rename (click to edit)
+- Acuity Professional logo branding
 
 ## Key API Endpoints
-- PUT /api/boards/{id}/columns/{col_id} (body: {options: [...]}) — save labels
-- POST /api/boards/{id}/share — share board with all team members
-- GET /api/boards/shared/me — get boards shared with current user
-- PUT /api/groups/{id} — rename group
-- GET/POST /api/teams/join-info/{slug}, /api/teams/join/{slug}
+- POST /api/import/excel (multipart file upload, creates board from Excel/CSV)
+- POST /api/folders (create folder)
+- GET /api/folders/workspace/{id}
+- PUT /api/folders/{id}?name=X (rename)
+- DELETE /api/folders/{id}
+- PUT /api/folders/boards/{boardId}/move?folder_id=X
+- PUT /api/boards/{id} (partial update - name, description, folder_id)
 
-## Testing Status (Latest - Iteration 3)
-- Backend: 12/12 (100%)
-- Frontend: 3/3 (100%)
+## Testing Status (Iteration 4)
+- Backend: 17/17 (100%)
+- Frontend: 100% verified
 
 ## P1 - Next Tasks
 - Activity log population
