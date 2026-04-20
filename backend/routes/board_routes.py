@@ -91,16 +91,20 @@ async def get_board(
 @router.put("/{board_id}", response_model=Board)
 async def update_board(
     board_id: str,
-    board_data: BoardCreate,
+    board_data: dict = Body(...),
     current_user: dict = Depends(get_current_user)
 ):
     board = await db.boards.find_one({"id": board_id})
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
     
+    allowed_fields = {"name", "description", "folder_id"}
+    update_dict = {k: v for k, v in board_data.items() if k in allowed_fields}
+    update_dict["updated_at"] = datetime.utcnow()
+    
     await db.boards.update_one(
         {"id": board_id},
-        {"$set": {**board_data.dict(), "updated_at": datetime.utcnow()}}
+        {"$set": update_dict}
     )
     
     updated_board = await db.boards.find_one({"id": board_id})

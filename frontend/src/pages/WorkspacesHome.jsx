@@ -6,7 +6,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Plus, LayoutGrid, BarChart3, UserPlus, X, Mail } from 'lucide-react';
+import { Plus, LayoutGrid, BarChart3, UserPlus, X, Mail, Upload } from 'lucide-react';
+import ImportDialog from './ImportDialog';
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ const WorkspacesHome = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [inviting, setInviting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const recentBoards = boards.slice(0, 6);
 
@@ -56,8 +58,17 @@ const WorkspacesHome = () => {
   return (
     <Layout
       title={currentWorkspace?.name || 'Workspaces'}
+      onOpenImport={() => setShowImport(true)}
       actions={
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            data-testid="home-import-btn"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
           <Button
             variant="outline"
             onClick={() => setShowInvite(true)}
@@ -140,7 +151,7 @@ const WorkspacesHome = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           <Card
             className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-orange-300"
             onClick={() => navigate('/boards/new')}
@@ -193,6 +204,20 @@ const WorkspacesHome = () => {
               <CardDescription>Add team members to collaborate together</CardDescription>
             </CardHeader>
           </Card>
+
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-cyan-300"
+            onClick={() => setShowImport(true)}
+            data-testid="import-board-card"
+          >
+            <CardHeader>
+              <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center mb-4">
+                <Upload className="h-6 w-6 text-white" />
+              </div>
+              <CardTitle>Import Board</CardTitle>
+              <CardDescription>Import from Monday.com or Excel</CardDescription>
+            </CardHeader>
+          </Card>
         </div>
 
         {/* Recent Boards */}
@@ -235,6 +260,8 @@ const WorkspacesHome = () => {
           </Card>
         )}
       </div>
+
+      <ImportDialog open={showImport} onClose={() => setShowImport(false)} />
     </Layout>
   );
 };

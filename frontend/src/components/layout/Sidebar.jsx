@@ -1,26 +1,112 @@
-import React from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, Bell, Search, ChevronDown, Plus, Brain, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
+import { toast } from '../../hooks/use-toast';
+import api from '../../config/api';
 
-const Sidebar = () => {
+const Sidebar = ({ onOpenImport }) => {
   const { user, logout } = useAuth();
-  const { workspaces, currentWorkspace, setCurrentWorkspace, boards, sharedBoards } = useWorkspace();
+  const { workspaces, currentWorkspace, setCurrentWorkspace, boards, sharedBoards, fetchBoards } = useWorkspace();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [folders, setFolders] = useState([]);
+  const [collapsedFolders, setCollapsedFolders] = useState(new Set());
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [renamingFolderId, setRenamingFolderId] = useState(null);
+  const [renamingFolderName, setRenamingFolderName] = useState('');
+
+  const fetchFolders = useCallback(async () => {
+    if (!currentWorkspace) return;
+    try {
+      const res = await api.get(`/folders/workspace/${currentWorkspace.id}`);
+      setFolders(res.data);
+    } catch (error) {
+      // silently fail
+    }
+  }, [currentWorkspace]);
+
+  useEffect(() => {
+    fetchFolders();
+  }, [fetchFolders]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim() || !currentWorkspace) return;
+    try {
+      await api.post('/folders', { name: newFolderName.trim(), workspace_id: currentWorkspace.id });
+      setNewFolderName('');
+      setCreatingFolder(false);
+      fetchFolders();
+      toast({ title: 'Folder created' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to create folder', variant: 'destructive' });
+    }
+  };
+
+  const handleRenameFolder = async (folderId) => {
+    if (!renamingFolderName.trim()) { setRenamingFolderId(null); return; }
+    try {
+      await api.put(`/folders/${folderId}?name=${encodeURIComponent(renamingFolderName.trim())}`);
+      setRenamingFolderId(null);
+      fetchFolders();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to rename folder', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (!window.confirm('Delete this folder? Boards inside will be moved out.')) return;
+    try {
+      await api.delete(`/folders/${folderId}`);
+      fetchFolders();
+      if (currentWorkspace) fetchBoards(currentWorkspace.id);
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to delete folder', variant: 'destructive' });
+    }
+  };
+
+  const handleMoveBoardToFolder = async (boardId, folderId) => {
+    try {
+      await api.put(`/folders/boards/${boardId}/move?folder_id=${folderId || ''}`);
+      if (currentWorkspace) fetchBoards(currentWorkspace.id);
+      toast({ title: 'Moved', description: 'Board moved successfully' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to move board', variant: 'destructive' });
+    }
+  };
+
+  const toggleFolder = (folderId) => {
+    const n = new Set(collapsedFolders);
+    if (n.has(folderId)) n.delete(folderId);
+    else n.add(folderId);
+    setCollapsedFolders(n);
+  };
+
+  // Boards without folders
+  const unfoldered = boards.filter(b => !b.folder_id);
+  // Boards grouped by folder
+  const boardsByFolder = {};
+  folders.forEach(f => { boardsByFolder[f.id] = boards.filter(b => b.folder_id === f.id); });
+
+  const isActive = (path) => location.pathname === path;
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
@@ -29,8 +115,6 @@ const Sidebar = () => {
         <div className="flex items-center mb-4">
           <img src="/acuity-logo.png" alt="Acuity Professional" className="h-8 object-contain" data-testid="sidebar-logo" />
         </div>
-        
-        {/* Workspace Selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="w-full justify-between">
@@ -40,11 +124,7 @@ const Sidebar = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
             {workspaces.map((ws) => (
-              <DropdownMenuItem
-                key={ws.id}
-                onClick={() => setCurrentWorkspace(ws)}
-                className={currentWorkspace?.id === ws.id ? 'bg-orange-50' : ''}
-              >
+              <DropdownMenuItem key={ws.id} onClick={() => setCurrentWorkspace(ws)} className={currentWorkspace?.id === ws.id ? 'bg-orange-50' : ''}>
                 {ws.name}
               </DropdownMenuItem>
             ))}
@@ -58,84 +138,119 @@ const Sidebar = () => {
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-1 mb-6">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            data-testid="sidebar-home-btn"
-            onClick={() => navigate('/workspaces')}
-          >
-            <Home className="h-4 w-4 mr-3" />
-            Home
+        <div className="space-y-0.5 mb-6">
+          <Button variant="ghost" className={`w-full justify-start ${isActive('/workspaces') ? 'bg-orange-50 text-orange-600' : ''}`} data-testid="sidebar-home-btn" onClick={() => navigate('/workspaces')}>
+            <Home className="h-4 w-4 mr-3" /> Home
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            data-testid="sidebar-team-btn"
-            onClick={() => navigate('/team')}
-          >
-            <Users className="h-4 w-4 mr-3" />
-            Team
+          <Button variant="ghost" className={`w-full justify-start ${isActive('/team') ? 'bg-orange-50 text-orange-600' : ''}`} data-testid="sidebar-team-btn" onClick={() => navigate('/team')}>
+            <Users className="h-4 w-4 mr-3" /> Team
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            data-testid="sidebar-boards-btn"
-            onClick={() => navigate('/workspaces')}
-          >
-            <LayoutGrid className="h-4 w-4 mr-3" />
-            Boards
+          <Button variant="ghost" className="w-full justify-start" data-testid="sidebar-boards-btn" onClick={() => navigate('/workspaces')}>
+            <LayoutGrid className="h-4 w-4 mr-3" /> Boards
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/dashboards`)}
-          >
-            <BarChart3 className="h-4 w-4 mr-3" />
-            Dashboards
+          <Button variant="ghost" className="w-full justify-start" onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/dashboards`)}>
+            <BarChart3 className="h-4 w-4 mr-3" /> Dashboards
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/automations`)}
-          >
-            <Zap className="h-4 w-4 mr-3" />
-            Automations
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => navigate('/ai-agents')}
-          >
-            <Brain className="h-4 w-4 mr-3" />
-            AI Agents
+          <Button variant="ghost" className="w-full justify-start" onClick={() => currentWorkspace && navigate(`/workspaces/${currentWorkspace.id}/automations`)}>
+            <Zap className="h-4 w-4 mr-3" /> Automations
           </Button>
         </div>
 
-        {/* Boards List */}
+        {/* Boards + Folders */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase">Boards</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => navigate('/boards/new')}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="space-y-1">
-            {boards.map((board) => (
-              <Button
-                key={board.id}
-                variant="ghost"
-                className="w-full justify-start text-sm"
-                onClick={() => navigate(`/boards/${board.id}`)}
-              >
-                <span className="w-2 h-2 rounded-full bg-orange-500 mr-2" />
-                {board.name}
+            <div className="flex gap-0.5">
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onOpenImport && onOpenImport()} data-testid="sidebar-import-btn" title="Import">
+                <Upload className="h-3.5 w-3.5" />
               </Button>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setCreatingFolder(true)} data-testid="sidebar-new-folder-btn" title="New Folder">
+                <FolderOpen className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => navigate('/boards/new')} title="New Board">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* New folder input */}
+          {creatingFolder && (
+            <div className="mb-2">
+              <Input
+                placeholder="Folder name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                  if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); }
+                }}
+                onBlur={() => { if (newFolderName.trim()) handleCreateFolder(); else setCreatingFolder(false); }}
+                autoFocus
+                className="h-7 text-sm"
+                data-testid="new-folder-input"
+              />
+            </div>
+          )}
+
+          {/* Folders with boards */}
+          {folders.map((folder) => (
+            <div key={folder.id} className="mb-1" data-testid={`folder-${folder.id}`}>
+              <div className="flex items-center group">
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0" onClick={() => toggleFolder(folder.id)}>
+                  {collapsedFolders.has(folder.id) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
+                <div className="flex items-center flex-1 min-w-0 px-1 py-1 rounded hover:bg-gray-100 cursor-pointer" onClick={() => toggleFolder(folder.id)}>
+                  <Folder className="h-4 w-4 mr-2 text-indigo-500 flex-shrink-0" />
+                  {renamingFolderId === folder.id ? (
+                    <Input
+                      value={renamingFolderName}
+                      onChange={(e) => setRenamingFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameFolder(folder.id);
+                        if (e.key === 'Escape') setRenamingFolderId(null);
+                      }}
+                      onBlur={() => handleRenameFolder(folder.id)}
+                      autoFocus
+                      className="h-5 text-xs border-0 p-0 shadow-none focus-visible:ring-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="text-sm truncate">{folder.name}</span>
+                  )}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => { setRenamingFolderId(folder.id); setRenamingFolderName(folder.name); }}>
+                      <Pencil className="h-3.5 w-3.5 mr-2" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-red-600">
+                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {!collapsedFolders.has(folder.id) && (
+                <div className="ml-6 space-y-0.5">
+                  {(boardsByFolder[folder.id] || []).map((board) => (
+                    <BoardItem key={board.id} board={board} folders={folders} onMove={handleMoveBoardToFolder} />
+                  ))}
+                  {(boardsByFolder[folder.id] || []).length === 0 && (
+                    <p className="text-xs text-gray-400 py-1 pl-2">No boards</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Unfoldered boards */}
+          <div className="space-y-0.5">
+            {unfoldered.map((board) => (
+              <BoardItem key={board.id} board={board} folders={folders} onMove={handleMoveBoardToFolder} />
             ))}
           </div>
         </div>
@@ -143,21 +258,10 @@ const Sidebar = () => {
         {/* Shared Boards */}
         {sharedBoards.length > 0 && (
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase">Shared with me</h3>
-            </div>
-            <div className="space-y-1">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Shared with me</h3>
+            <div className="space-y-0.5">
               {sharedBoards.map((board) => (
-                <Button
-                  key={board.id}
-                  variant="ghost"
-                  className="w-full justify-start text-sm"
-                  onClick={() => navigate(`/boards/${board.id}`)}
-                  data-testid={`shared-board-${board.id}`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
-                  {board.name}
-                </Button>
+                <BoardItem key={board.id} board={board} shared data-testid={`shared-board-${board.id}`} />
               ))}
             </div>
           </div>
@@ -171,9 +275,7 @@ const Sidebar = () => {
             <Button variant="ghost" className="w-full justify-start p-2">
               <Avatar className="h-8 w-8 mr-2">
                 <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">
-                  {user?.name?.charAt(0)}
-                </AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">{user?.name}</p>
@@ -182,10 +284,53 @@ const Sidebar = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
+            <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+    </div>
+  );
+};
+
+const BoardItem = ({ board, folders, onMove, shared }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isActive = location.pathname === `/boards/${board.id}`;
+
+  return (
+    <div className="flex items-center group">
+      <Button
+        variant="ghost"
+        className={`w-full justify-start text-sm h-7 px-2 ${isActive ? 'bg-orange-50 text-orange-600' : ''}`}
+        onClick={() => navigate(`/boards/${board.id}`)}
+      >
+        <span className={`w-2 h-2 rounded-full ${shared ? 'bg-blue-500' : 'bg-orange-500'} mr-2 flex-shrink-0`} />
+        <span className="truncate">{board.name}</span>
+      </Button>
+      {!shared && folders && folders.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0">
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {board.folder_id && (
+              <DropdownMenuItem onClick={() => onMove(board.id, null)}>
+                Remove from folder
+              </DropdownMenuItem>
+            )}
+            {folders.filter(f => f.id !== board.folder_id).map((folder) => (
+              <DropdownMenuItem key={folder.id} onClick={() => onMove(board.id, folder.id)}>
+                <Folder className="h-3.5 w-3.5 mr-2 text-indigo-500" />
+                Move to {folder.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 };

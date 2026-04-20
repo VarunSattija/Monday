@@ -113,11 +113,26 @@ class Board(BaseModel):
     name: str
     workspace_id: str
     description: Optional[str] = None
+    folder_id: Optional[str] = None
     columns: List[BoardColumn] = []
     owner_id: str
     member_ids: List[str] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Folder Models
+class FolderCreate(BaseModel):
+    name: str
+    workspace_id: str
+
+class Folder(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    workspace_id: str
+    owner_id: str
+    color: str = "#6366f1"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # Item Models

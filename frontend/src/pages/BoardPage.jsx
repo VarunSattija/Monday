@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Kanban, Calendar, BarChart3, Settings, History, Share2 } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Plus, Table as TableIcon, Calendar, BarChart3, Settings, History, Share2, Pencil, Check } from 'lucide-react';
 import TableView from '../components/board/TableView';
-import KanbanView from '../components/board/KanbanView';
+import ChartView from '../components/board/ChartView';
 import TimelineView from '../components/board/TimelineView';
 import CalendarView from '../components/board/CalendarView';
 import AddColumnDialog from '../components/board/AddColumnDialog';
@@ -24,6 +25,8 @@ const BoardPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('table');
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [boardName, setBoardName] = useState('');
 
   useEffect(() => {
     fetchBoardData();
@@ -37,20 +40,33 @@ const BoardPage = () => {
         api.get(`/items/board/${boardId}`),
         api.get(`/groups/board/${boardId}`),
       ]);
-
       setBoard(boardRes.data);
+      setBoardName(boardRes.data.name);
       setItems(itemsRes.data);
       setGroups(groupsRes.data);
     } catch (error) {
       console.error('Error fetching board data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load board data',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to load board data', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveBoardName = async () => {
+    if (!boardName.trim() || boardName === board.name) {
+      setEditingName(false);
+      setBoardName(board.name);
+      return;
+    }
+    try {
+      await api.put(`/boards/${boardId}`, { name: boardName.trim() });
+      setBoard({ ...board, name: boardName.trim() });
+      toast({ title: 'Renamed', description: 'Board name updated' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to rename board', variant: 'destructive' });
+      setBoardName(board.name);
+    }
+    setEditingName(false);
   };
 
   const handleAddItem = async (groupId) => {
@@ -64,11 +80,7 @@ const BoardPage = () => {
       setItems([...items, response.data]);
       toast({ title: 'Success', description: 'Item added successfully!' });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add item',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to add item', variant: 'destructive' });
     }
   };
 
@@ -82,11 +94,7 @@ const BoardPage = () => {
       setGroups([...groups, response.data]);
       toast({ title: 'Success', description: 'Group added successfully!' });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add group',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to add group', variant: 'destructive' });
     }
   };
 
@@ -105,11 +113,7 @@ const BoardPage = () => {
       setItems(items.filter((item) => item.id !== itemId));
       toast({ title: 'Success', description: 'Item deleted successfully!' });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete item',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to delete item', variant: 'destructive' });
     }
   };
 
@@ -133,9 +137,38 @@ const BoardPage = () => {
     );
   }
 
+  const boardTitle = editingName ? (
+    <div className="flex items-center gap-2">
+      <Input
+        value={boardName}
+        onChange={(e) => setBoardName(e.target.value)}
+        onBlur={handleSaveBoardName}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSaveBoardName();
+          if (e.key === 'Escape') { setEditingName(false); setBoardName(board.name); }
+        }}
+        autoFocus
+        className="h-8 w-64 text-lg font-semibold border-orange-300 focus-visible:ring-orange-400"
+        data-testid="board-name-input"
+      />
+      <Button variant="ghost" size="sm" onClick={handleSaveBoardName}>
+        <Check className="h-4 w-4 text-green-600" />
+      </Button>
+    </div>
+  ) : (
+    <span
+      className="cursor-pointer hover:text-orange-600 transition-colors flex items-center gap-2"
+      onClick={() => setEditingName(true)}
+      data-testid="board-name-editable"
+    >
+      {board.name}
+      <Pencil className="h-3.5 w-3.5 text-gray-400" />
+    </span>
+  );
+
   return (
     <Layout
-      title={board.name}
+      title={boardTitle}
       actions={
         <div className="flex gap-2">
           <InviteToBoardDialog boardId={boardId} onInvite={fetchBoardData} />
@@ -155,20 +188,12 @@ const BoardPage = () => {
             <Share2 className="h-4 w-4 mr-2" />
             Share with Team
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowActivityLog(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowActivityLog(true)}>
             <History className="h-4 w-4 mr-2" />
             Activity
           </Button>
           <AddColumnDialog boardId={boardId} onColumnAdded={fetchBoardData} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddGroup}
-          >
+          <Button variant="outline" size="sm" onClick={handleAddGroup}>
             <Plus className="h-4 w-4 mr-2" />
             Add Group
           </Button>
@@ -193,9 +218,9 @@ const BoardPage = () => {
                 <TableIcon className="h-4 w-4 mr-2" />
                 Table
               </TabsTrigger>
-              <TabsTrigger value="kanban" className="data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">
-                <Kanban className="h-4 w-4 mr-2" />
-                Kanban
+              <TabsTrigger value="chart" className="data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600" data-testid="chart-tab">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Chart
               </TabsTrigger>
               <TabsTrigger value="timeline" className="data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600">
                 <BarChart3 className="h-4 w-4 mr-2" />
@@ -222,34 +247,22 @@ const BoardPage = () => {
               onRefresh={fetchBoardData}
             />
           )}
-          {currentView === 'kanban' && (
-            <KanbanView
+          {currentView === 'chart' && (
+            <ChartView
               board={board}
               items={items}
               groups={groups}
-              onUpdateItem={handleUpdateItem}
-              onRefresh={fetchBoardData}
             />
           )}
           {currentView === 'timeline' && (
-            <TimelineView
-              board={board}
-              items={items}
-              groups={groups}
-              onRefresh={fetchBoardData}
-            />
+            <TimelineView board={board} items={items} groups={groups} onRefresh={fetchBoardData} />
           )}
           {currentView === 'calendar' && (
-            <CalendarView
-              board={board}
-              items={items}
-              onRefresh={fetchBoardData}
-            />
+            <CalendarView board={board} items={items} onRefresh={fetchBoardData} />
           )}
         </div>
       </div>
 
-      {/* Activity Log Sidebar */}
       <ActivityLog open={showActivityLog} onClose={() => setShowActivityLog(false)} />
     </Layout>
   );
