@@ -36,6 +36,13 @@ async def insert_item_at_position(
     if not board_id or not group_id:
         raise HTTPException(status_code=400, detail="board_id and group_id required")
 
+    # Auth check
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    if current_user["id"] not in board.get("member_ids", []) and board.get("owner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     # Shift existing items at or after this position
     await db.items.update_many(
         {"board_id": board_id, "group_id": group_id, "position": {"$gte": position}},

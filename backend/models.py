@@ -142,12 +142,14 @@ class ItemCreate(BaseModel):
     group_id: Optional[str] = None
     name: str
     column_values: Dict[str, Any] = {}
+    position: Optional[int] = None
 
 
 class ItemUpdate(BaseModel):
     name: Optional[str] = None
     column_values: Optional[Dict[str, Any]] = None
     group_id: Optional[str] = None
+    position: Optional[int] = None
 
 
 class Item(BaseModel):
