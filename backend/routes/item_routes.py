@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from models import Item, ItemCreate, ItemUpdate
 from auth import get_current_user
 from typing import List
@@ -20,6 +20,72 @@ async def create_item(
     )
     await db.items.insert_one(item.dict())
     return item
+
+
+@router.post("/insert-at")
+async def insert_item_at_position(
+    body: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Insert an item at a specific position within a group, shifting others down."""
+    board_id = body.get("board_id")
+    group_id = body.get("group_id")
+    position = body.get("position", 0)
+    name = body.get("name", "New Item")
+
+    if not board_id or not group_id:
+        raise HTTPException(status_code=400, detail="board_id and group_id required")
+
+    # Shift existing items at or after this position
+    await db.items.update_many(
+        {"board_id": board_id, "group_id": group_id, "position": {"$gte": position}},
+        {"$inc": {"position": 1}}
+    )
+
+    item = Item(
+        board_id=board_id,
+        group_id=group_id,
+        name=name,
+        position=position,
+        column_values={},
+        created_by=current_user["id"]
+    )
+    await db.items.insert_one(item.dict())
+    return item.dict()
+
+
+@router.post("/bulk-move")
+async def bulk_move_items(
+    body: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Move multiple items to a different group."""
+    item_ids = body.get("item_ids", [])
+    target_group_id = body.get("target_group_id")
+    if not item_ids or not target_group_id:
+        raise HTTPException(status_code=400, detail="item_ids and target_group_id required")
+
+    result = await db.items.update_many(
+        {"id": {"$in": item_ids}},
+        {"$set": {"group_id": target_group_id, "updated_at": datetime.utcnow()}}
+    )
+    return {"message": f"Moved {result.modified_count} items", "moved": result.modified_count}
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_items(
+    body: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete multiple items at once."""
+    item_ids = body.get("item_ids", [])
+    if not item_ids:
+        raise HTTPException(status_code=400, detail="item_ids required")
+
+    result = await db.items.delete_many({"id": {"$in": item_ids}})
+    # Also delete updates
+    await db.updates.delete_many({"item_id": {"$in": item_ids}})
+    return {"message": f"Deleted {result.deleted_count} items", "deleted": result.deleted_count}
 
 
 @router.get("/board/{board_id}", response_model=List[Item])

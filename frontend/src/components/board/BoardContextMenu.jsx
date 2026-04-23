@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoreHorizontal, Move, Copy, Lock, Star, Save, Trash2, Archive, Eye } from 'lucide-react';
+import { MoreHorizontal, Move, Copy, Lock, Star, Save, Trash2, Archive, Eye, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,6 +89,23 @@ const BoardContextMenu = ({ board, onUpdate }) => {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await api.get(`/export/excel/${board.id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${board?.name || 'board'}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Exported!', description: 'Board exported to Excel' });
+    } catch (error) {
+      toast({ title: 'Export Failed', description: 'Could not export board', variant: 'destructive' });
+    }
+  };
+
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this board?')) {
       try {
@@ -149,6 +166,10 @@ const BoardContextMenu = ({ board, onUpdate }) => {
           <DropdownMenuItem onClick={() => setShowDuplicateDialog(true)}>
             <Copy className="h-4 w-4 mr-2" />
             Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExport} data-testid="board-export-excel">
+            <Download className="h-4 w-4 mr-2" />
+            Export to Excel
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Save className="h-4 w-4 mr-2" />
