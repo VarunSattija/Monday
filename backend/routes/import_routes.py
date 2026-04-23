@@ -268,6 +268,10 @@ async def import_from_excel(
         if not existing_board:
             raise HTTPException(status_code=404, detail="Board not found")
 
+        # Authorization check
+        if current_user["id"] not in existing_board.get("member_ids", []) and existing_board.get("owner_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to import into this board")
+
         board_id = existing_board_id
         # Use existing columns, map imported headers to existing column ids
         existing_columns = existing_board.get("columns", [])
