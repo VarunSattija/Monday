@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
-import { Plus, Trash2, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
+import { Plus, Trash2, BarChart3, Save } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -14,41 +14,72 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, LineChart, Line
 } from 'recharts';
+import api from '../../config/api';
 
 const COLORS = ['#f97316', '#0ea5e9', '#8b5cf6', '#10b981', '#ef4444',
                 '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#84cc16'];
 
 const ChartView = ({ board, items, groups }) => {
-  const [charts, setCharts] = useState([
-    { id: '1', type: 'bar', column: '', groupBy: '' }
-  ]);
+  const defaultChart = { id: '1', type: 'bar', column: '', groupBy: '' };
+  const [charts, setCharts] = useState([defaultChart]);
+  const [hasUnsaved, setHasUnsaved] = useState(false);
+
+  // Load saved chart configs from board
+  useEffect(() => {
+    if (board?.chart_configs && Array.isArray(board.chart_configs) && board.chart_configs.length > 0) {
+      setCharts(board.chart_configs);
+      setHasUnsaved(false);
+    }
+  }, [board?.id]);
 
   const columns = board?.columns?.filter(c => c.id !== board.columns[0]?.id) || [];
 
   const addChart = () => {
-    setCharts([...charts, {
+    const newCharts = [...charts, {
       id: Date.now().toString(),
       type: 'bar',
       column: '',
       groupBy: ''
-    }]);
+    }];
+    setCharts(newCharts);
+    setHasUnsaved(true);
   };
 
   const removeChart = (chartId) => {
-    setCharts(charts.filter(c => c.id !== chartId));
+    const newCharts = charts.filter(c => c.id !== chartId);
+    setCharts(newCharts);
+    setHasUnsaved(true);
   };
 
   const updateChart = (chartId, field, value) => {
-    setCharts(charts.map(c => c.id === chartId ? { ...c, [field]: value } : c));
+    const newCharts = charts.map(c => c.id === chartId ? { ...c, [field]: value } : c);
+    setCharts(newCharts);
+    setHasUnsaved(true);
   };
+
+  const saveChartConfigs = useCallback(async () => {
+    try {
+      await api.put(`/boards/${board.id}`, { chart_configs: charts });
+      setHasUnsaved(false);
+    } catch (err) {
+      console.error('Failed to save chart configs:', err);
+    }
+  }, [board?.id, charts]);
+
+  // Auto-save when charts change (debounced)
+  useEffect(() => {
+    if (!hasUnsaved || !board?.id) return;
+    const timeout = setTimeout(() => {
+      saveChartConfigs();
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [hasUnsaved, saveChartConfigs, board?.id]);
 
   const getChartData = (chart) => {
     if (!chart.column) return [];
-
     const col = columns.find(c => c.id === chart.column);
     if (!col) return [];
 
-    // Count items by column value
     const counts = {};
     items.forEach(item => {
       const val = item.column_values?.[chart.column];
@@ -70,25 +101,20 @@ const ChartView = ({ board, items, groups }) => {
 
   const getGroupedChartData = (chart) => {
     if (!chart.column || !chart.groupBy) return getChartData(chart);
-
     const col = columns.find(c => c.id === chart.column);
     const groupCol = columns.find(c => c.id === chart.groupBy);
     if (!col || !groupCol) return getChartData(chart);
 
-    // Group by the groupBy column, count values of the main column
     const grouped = {};
     items.forEach(item => {
       const groupVal = item.column_values?.[chart.groupBy];
       const groupLabel = !groupVal ? '(empty)' : typeof groupVal === 'object' ? (groupVal.label || '(empty)') : String(groupVal);
-      
       const val = item.column_values?.[chart.column];
       const valLabel = !val ? '(empty)' : typeof val === 'object' ? (val.label || '(empty)') : String(val);
-
       if (!grouped[groupLabel]) grouped[groupLabel] = {};
       grouped[groupLabel][valLabel] = (grouped[groupLabel][valLabel] || 0) + 1;
     });
 
-    // Get all unique value labels
     const allValues = new Set();
     Object.values(grouped).forEach(g => Object.keys(g).forEach(k => allValues.add(k)));
 
@@ -119,21 +145,12 @@ const ChartView = ({ board, items, groups }) => {
         return (
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
+              <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%"
                 outerRadius={120}
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-              >
-                {data.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
+                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                {data.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip /><Legend />
             </PieChart>
           </ResponsiveContainer>
         );
@@ -141,26 +158,18 @@ const ChartView = ({ board, items, groups }) => {
         return (
           <ResponsiveContainer width="100%" height={350}>
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Legend />
               {allKeys.map((key, i) => (
                 <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />
               ))}
             </LineChart>
           </ResponsiveContainer>
         );
-      default: // bar
+      default:
         return (
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Legend />
               {allKeys.map((key, i) => (
                 <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
               ))}
@@ -173,15 +182,32 @@ const ChartView = ({ board, items, groups }) => {
   return (
     <div className="h-full overflow-auto bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-800">Board Charts</h2>
-        <Button
-          onClick={addChart}
-          className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-          data-testid="add-chart-btn"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Chart
-        </Button>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-800">Board Charts</h2>
+          {hasUnsaved && (
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Saving...</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveChartConfigs}
+            disabled={!hasUnsaved}
+            data-testid="save-charts-btn"
+          >
+            <Save className="h-4 w-4 mr-1.5" />
+            Save
+          </Button>
+          <Button
+            onClick={addChart}
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+            data-testid="add-chart-btn"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Chart
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -200,8 +226,6 @@ const ChartView = ({ board, items, groups }) => {
                   )}
                 </div>
               </div>
-
-              {/* Chart Config */}
               <div className="flex flex-wrap gap-3 mt-3">
                 <div className="flex-1 min-w-[140px]">
                   <Label className="text-xs text-gray-500">Column</Label>

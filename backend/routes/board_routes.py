@@ -98,7 +98,7 @@ async def update_board(
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
     
-    allowed_fields = {"name", "description", "folder_id"}
+    allowed_fields = {"name", "description", "folder_id", "chart_configs"}
     update_dict = {k: v for k, v in board_data.items() if k in allowed_fields}
     update_dict["updated_at"] = datetime.utcnow()
     

@@ -115,6 +115,7 @@ class Board(BaseModel):
     description: Optional[str] = None
     folder_id: Optional[str] = None
     columns: List[BoardColumn] = []
+    chart_configs: List[Dict[str, Any]] = []
     owner_id: str
     member_ids: List[str] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Calendar, BarChart3, Settings, History, Share2, Pencil, Check } from 'lucide-react';
+import { Plus, Table as TableIcon, Calendar, BarChart3, Settings, History, Share2, Pencil, Check, Download } from 'lucide-react';
 import TableView from '../components/board/TableView';
 import ChartView from '../components/board/ChartView';
 import TimelineView from '../components/board/TimelineView';
@@ -98,6 +98,23 @@ const BoardPage = () => {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await api.get(`/export/excel/${boardId}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${board?.name || 'board'}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Exported!', description: 'Board exported to Excel' });
+    } catch (error) {
+      toast({ title: 'Export Failed', description: 'Could not export board', variant: 'destructive' });
+    }
+  };
+
   const handleUpdateItem = async (itemId, updates) => {
     try {
       const response = await api.put(`/items/${itemId}`, updates);
@@ -171,6 +188,15 @@ const BoardPage = () => {
       title={boardTitle}
       actions={
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            data-testid="export-board-btn"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
           <InviteToBoardDialog boardId={boardId} onInvite={fetchBoardData} />
           <Button
             variant="outline"
