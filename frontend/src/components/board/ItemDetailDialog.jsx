@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from '../../hooks/use-toast';
 import api from '../../config/api';
 
-const MentionInput = ({ value, onChange, onSubmit, disabled, boardId }) => {
+const MentionInput = ({ value, onChange, onSubmit, disabled, boardId, currentUserId }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
   const [members, setMembers] = useState([]);
@@ -43,7 +43,7 @@ const MentionInput = ({ value, onChange, onSubmit, disabled, boardId }) => {
   };
 
   const filteredMembers = members.filter(m =>
-    m.name?.toLowerCase().includes(mentionSearch) || m.email?.toLowerCase().includes(mentionSearch)
+    m.id !== currentUserId && (m.name?.toLowerCase().includes(mentionSearch) || m.email?.toLowerCase().includes(mentionSearch))
   );
 
   const insertMention = useCallback((member) => {
@@ -276,6 +276,7 @@ const ItemDetailDialog = ({ item, open, onClose }) => {
               onSubmit={handleSubmitComment}
               disabled={submitting}
               boardId={item?.board_id}
+              currentUserId={user?.id}
             />
             <Button
               size="sm"
