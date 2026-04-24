@@ -100,6 +100,21 @@ async def update_board(
     
     allowed_fields = {"name", "description", "folder_id", "chart_configs", "columns"}
     update_dict = {k: v for k, v in board_data.items() if k in allowed_fields}
+
+    # Validate columns if provided - must be a list of dicts with at least id/title/type
+    if "columns" in update_dict:
+        cols = update_dict["columns"]
+        if not isinstance(cols, list):
+            raise HTTPException(status_code=422, detail="columns must be a list")
+        for i, col in enumerate(cols):
+            if not isinstance(col, dict) or "id" not in col or "title" not in col:
+                raise HTTPException(status_code=422, detail=f"Invalid column at index {i}")
+
+    # Validate chart_configs if provided
+    if "chart_configs" in update_dict:
+        if not isinstance(update_dict["chart_configs"], list):
+            raise HTTPException(status_code=422, detail="chart_configs must be a list")
+
     update_dict["updated_at"] = datetime.utcnow()
     
     await db.boards.update_one(
