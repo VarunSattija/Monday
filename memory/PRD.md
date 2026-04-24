@@ -11,89 +11,77 @@ Build a replica of monday.com with the branding (logo and theme) of Acuity Profe
 ```
 /app
 ├── backend
-│   ├── .env (MONGO_URL, DB_NAME)
-│   ├── database.py
-│   ├── models.py (User, Board w/ chart_configs, Group, Item w/ position, Folder, etc.)
-│   ├── auth.py
-│   ├── requirements.txt
-│   ├── server.py
-│   └── routes/
-│       ├── import_routes.py (group detection, append mode)
-│       ├── export_routes.py (Excel export)
-│       ├── board_routes.py (chart_configs persistence)
-│       ├── item_routes.py (bulk-move, bulk-delete, insert-at)
-│       ├── group_routes.py
-│       ├── auth_routes.py
-│       ├── team_routes.py
-│       └── ...
+│   ├── routes/
+│   │   ├── import_routes.py (group detection, append, link type detection)
+│   │   ├── export_routes.py (Excel export with hyperlinks)
+│   │   ├── board_routes.py (favorites, bulk-copy, bulk-move-board)
+│   │   ├── item_routes.py (bulk ops, insert-at, activity logging)
+│   │   ├── activity_routes.py (get activities, undo)
+│   │   ├── activity_helper.py (log_activity helper)
+│   │   └── ...
+│   └── models.py (Board w/ chart_configs, ColumnType w/ LINK)
 └── frontend
-    ├── .env (REACT_APP_BACKEND_URL)
     └── src
-        ├── App.js
-        ├── contexts/ (AuthContext, WorkspaceContext)
         ├── components/board/
-        │   ├── TableView.jsx (checkboxes, per-group headers, insert-between, bulk actions)
-        │   ├── ChartView.jsx (multi-chart with auto-save)
-        │   ├── BoardContextMenu.jsx (export to Excel option)
-        │   └── cells/
-        └── pages/
-            ├── BoardPage.jsx (Export button)
-            ├── ImportDialog.jsx (new/existing board toggle)
-            └── ...
+        │   ├── TableView.jsx (select all, bulk ops, pagination, link cell)
+        │   ├── ChartView.jsx (multi-chart, auto-save)
+        │   ├── ActivityLog.jsx (monday.com style with undo)
+        │   ├── BoardContextMenu.jsx (export to Excel)
+        │   └── cells/LinkCell.jsx (clickable hyperlinks)
+        ├── components/layout/Sidebar.jsx (favourites section)
+        └── pages/ImportDialog.jsx (new/existing board toggle)
 ```
 
-## What's Been Implemented
+## Completed Features
 
-### Phase 1 - Core Platform (Complete)
-- JWT Auth with auto-team assignment to "Acuity-Professional"
-- Workspaces, Folders, Boards with customizable columns
-- Groups, Items, Column CRUD operations
-- Status/Priority column label customization
-- Board sharing with team members
-- Comments/Updates on items
-- Board context menu (duplicate, move, delete)
-- Shareable team invite link (/join/Acuityprofessional)
+### Phase 1 - Core Platform
+- JWT Auth + auto-team "Acuity-Professional"
+- Workspaces, Folders, Boards, Groups, Items
+- Column CRUD with types: text, status, person, date, numbers, priority, tags, checkbox, link
+- Board sharing, comments, context menu (duplicate, move, delete, export)
+- Shareable join link (/join/Acuityprofessional)
 - Acuity Professional logo branding
 
-### Phase 2 - Import/Export & Charts (Complete - Apr 23, 2026)
-- Enhanced Excel Import with smart group detection
-- Import into Existing Board (append mode)
-- Excel Export (GET /api/export/excel/{board_id})
-- Multi-Chart with DB Persistence
+### Phase 2 - Import/Export & Charts (Apr 23, 2026)
+- Smart Excel Import with group detection from blank-row separators
+- Import into existing board (append mode)
+- Excel Export with group structure and hyperlinked URLs
+- Multi-Chart with DB persistence (auto-save)
 
-### Phase 3 - Monday.com Table UX (Complete - Apr 23, 2026)
-- **Column headers per group**: Each group shows its own column header row (ITEM, PERSON, NBR, etc.) below the group name — matches monday.com layout
-- **Checkboxes on items**: Replaced 3-dot menu with checkboxes for multi-select
-- **Floating bulk actions bar**: When items are selected, a dark bar appears at bottom with Delete, Move to (group dropdown), and deselect
-- **Insert row between items**: Hover between rows shows a "+" button to insert at specific position (backend shifts positions)
-- **Export to Excel in context menu**: The board "..." menu now includes "Export to Excel" option
-- **Bulk move items**: Move selected items between groups
-- **Bulk delete items**: Delete multiple items at once
+### Phase 3 - Table UX (Apr 23, 2026)
+- Column headers per group
+- Checkboxes on items (replaced 3-dot menu)
+- Insert row between items with "+" hover button
+- Floating bulk actions bar (Delete, Move to Group)
+- Export to Excel in board context menu
 
-## Key DB Schema
-- `boards`: {id, name, workspace_id, columns, chart_configs, owner_id, member_ids}
-- `groups`: {id, board_id, title, color, position}
-- `items`: {id, board_id, group_id, name, column_values, position, created_by}
+### Phase 4 - Advanced Features (Apr 24, 2026)
+- **Select All checkbox** in group column header
+- **Copy to Board / Move to Board** in bulk actions bar
+- **Favourites** — Star boards, Favourites section in sidebar
+- **Links column type** — Auto-hyperlinked URLs, clickable in table, hyperlinked in Excel export
+- **Activity Log** — Tracks every change: user, item, column, old→new value, timestamp, Undo support
+- **Performance** — Paginated groups (50 items/page with "Show more" button)
 
 ## Key API Endpoints
-- POST /api/import/excel (new board or append to existing)
-- GET /api/export/excel/{board_id} (download .xlsx)
-- POST /api/items/insert-at (insert at position, shifts others)
-- POST /api/items/bulk-move (move items between groups)
-- POST /api/items/bulk-delete (delete multiple items)
-- PUT /api/boards/{board_id} (supports chart_configs)
+- POST /api/import/excel (group detection, append mode)
+- GET /api/export/excel/{board_id} (with hyperlinks)
+- POST /api/boards/{board_id}/favorite (toggle)
+- GET /api/boards/favorites/me
+- POST /api/boards/bulk-copy (copy items to another board)
+- POST /api/boards/bulk-move-board (move items to another board)
+- POST /api/items/insert-at, /bulk-move, /bulk-delete
+- GET /api/activity/board/{board_id}
+- POST /api/activity/{id}/undo
 
 ## P1 - Next Tasks
-- Activity log population across all CRUD endpoints
-- File column uploads (requires object storage integration)
+- File column uploads (requires file storage)
 - Email notifications for automations
 
 ## P2 - Future Tasks
-- AI Agent functionality (currently scaffolded/mocked)
-- Refined permissions (column-level restrictions)
-- Dashboard widgets enhancement
+- AI Agent functionality (scaffolded)
+- Column-level permissions
+- Dashboard widgets
 
-## Testing
-- Iterations 1-4: Core platform (all passed)
-- Iteration 5: Import groups, export, chart persistence (11/11 backend, 100% frontend)
-- Iteration 6: Table UX enhancements - checkboxes, bulk ops, per-group headers (11/11 backend, 5/5 frontend)
+## Testing History
+- Iterations 1-7: All passed (18/18 backend + 6/6 frontend in latest)

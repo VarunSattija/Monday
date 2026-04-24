@@ -15,8 +15,9 @@ async def create_item(
     item_data: ItemCreate,
     current_user: dict = Depends(get_current_user)
 ):
+    payload = {k: v for k, v in item_data.dict().items() if v is not None}
     item = Item(
-        **item_data.dict(),
+        **payload,
         created_by=current_user["id"]
     )
     await db.items.insert_one(item.dict())
@@ -168,6 +169,7 @@ async def update_item(
             old_value=item.get("name", ""),
             new_value=update_data["name"],
             item_id=item_id,
+            previous_state={"name": item.get("name", "")},
         )
 
     await db.items.update_one(
