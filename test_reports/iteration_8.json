@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 8: Tested 4 new features - column resize, column reorder, Monday.com-style toolbar (Search/Person/Filter/Sort/Hide/Group by), and WebSocket real-time collaboration. Backend: 5/5 executed pytest tests PASSED (1 skipped due to destructive bug - see below). Frontend: toolbar and all 6 buttons present, search filter works, dropdowns populate correctly, 20 resize handles + 20 draggable column headers present on Pipeline Test board, existing features (favourites, select-all, activity) still working. WebSocket endpoint /api/ws/board/{id} accepts connections, broadcasts to other clients, excludes sender.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/boards/{board_id}", "issue": "No validation on the 'columns' field - sending columns='not-a-list' (a string) is happily persisted to MongoDB. This CORRUPTS the board: every subsequent call to GET /api/boards/workspace/{ws_id} returns 500 because Board(**doc) fails Pydantic validation, making ALL boards in that workspace unreachable until MongoDB is manually fixed. This happened twice during this run - I had to restore the Pipeline board via a direct DB update both times. Root cause: board_routes.update_board does raw $set with no type validation; Board model requires columns: List[Column] but the update path bypasses it. Fix: use a Pydantic request model for the update body (BoardUpdate with columns: Optional[List[Column]]), OR validate each item in board_data['columns'] is a dict matching Column schema before $set.", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/items", "issue": "STILL BROKEN from iteration 7: returns 500 when 'position' is omitted because create_item passes position=None into required-int Item field. Not re-tested this iteration but flagged as a pre-existing regression.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "PUT /api/boards/{board_id}", "issue": "update_board still uses raw dict body with allowed_fields whitelist - no Pydantic schema for 'columns' / 'chart_configs' means clients can send arbitrary-shaped objects. Define BoardUpdateRequest model with typed optional fields."},
+      {"endpoint": "WS /api/ws/board/{board_id}", "issue": "No authentication on WebSocket endpoint - any client that knows a board_id can connect and send broadcasts to all other users watching that board. Should require a JWT token via query param or subprotocol and validate board membership before accepting."},
+      {"endpoint": "WS /api/ws/board/{board_id}", "issue": "Incoming messages are trusted: whatever JSON a client sends is re-broadcast verbatim (only board_id is overwritten). A malicious client could spam messages of any shape. Consider validating a small allowed message-type whitelist."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BoardToolbar", "issues": ["Filter dropdown renders status/priority option chips INSIDE a DropdownMenuItem, which steals clicks - clicking a chip closes the menu before the onClick fires cleanly. Consider using a sub-popover or plain div rows for the option chips."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration8_features.py",
+    "/app/test_reports/pytest/pytest_iteration8.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Validate 'columns' in PUT /api/boards/{id} - reject non-list/non-Column payloads with 422 BEFORE writing to Mongo. The current behaviour can brick an entire workspace's boards list until DB is manually repaired.",
+    "Re-fix iteration-7 regression: create_item should strip None values before Item(**...) so POST /api/items without 'position' no longer 500s.",
+    "Add auth + board-membership check to the WebSocket endpoint (token via query param or subprotocol).",
+    "Validate/whitelist incoming WS message shapes instead of re-broadcasting raw client JSON.",
+    "BoardToolbar.jsx Filter dropdown: move option chips out of DropdownMenuItem so clicks on chips don't race with the menu-close handler."
+  ],
+  "critical_code_review_comments": [
+    "board_routes.update_board: allowed_fields whitelist is NOT a validator - it just selects keys. 'columns' accepts any JSON type. Use Pydantic BoardUpdate model.",
+    "ws_routes.board_websocket: no auth, no message schema, no rate-limiting; broadcast trusts whatever JSON arrives. In production this is a DoS/abuse vector.",
+    "BoardConnectionManager uses an in-memory dict - won't scale across multiple backend replicas. Future: use Redis pub/sub or equivalent.",
+    "TableView.jsx: column resize mousedown/mousemove/mouseup listeners + HTML5 drag handlers + toolbar + pagination + bulk actions keep accumulating in one file (see iter7 review). Please extract useColumnResize, useColumnReorder hooks and a ColumnHeader component.",
+    "board update endpoint doesn't emit the WebSocket broadcast server-side - so 'real-time collaboration' depends entirely on the sending client emitting a WS message after a successful mutation. Consider a post-write hook in update_board/update_item that calls manager.broadcast to guarantee consistency even if a client skips the WS send."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration8_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% of executed (5/5 passed, 1 skipped due to destructive bug)",
+    "frontend": "100% (toolbar+6 buttons, search filter, sort/hide/groupby dropdowns, 20 resize handles, 20 draggable headers, existing features all verified)"
+  },
+  "test_credentials": {
+    "test_user": "testuser@acuity.com / TestPass123!",
+    "pipeline_board_id": "8110ddb1-2cd2-4ce6-a27d-a4ef5120744a"
+  },
+  "seed_data_creation": "None. Pipeline Test board's columns were temporarily corrupted by the destructive validation test and had to be restored twice via a direct Mongo update using /tmp/fix_board.py (defaults: Item/Status/Person/Date/Priority/Timeline with standard status+priority options).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter8 endpoints: PUT /api/boards/{id} with body {'columns':[...]} persists column order/widths (verified). WebSocket at wss://<host>/api/ws/board/{board_id} - accepts connections with NO auth, echoes JSON to other clients with board_id injected, does NOT echo to sender. Frontend route is /boards/:boardId (NOT /board/:id). Toolbar testids: toolbar-search-btn, toolbar-search-input, toolbar-person-btn, toolbar-filter-btn, toolbar-sort-btn, toolbar-hide-btn, toolbar-groupby-btn, board-toolbar. Column resize handle: data-testid='resize-{column_id}' - 20 handles on Pipeline board (5 data cols x 4 groups). Column headers are draggable=true for reorder. DESTRUCTIVE BUG WARNING: do not PUT {'columns':'<string>'} to /api/boards/{id} - it is accepted, persisted, and then breaks GET /api/boards/workspace/{ws_id} with 500 permanently. If this happens, run /tmp/fix_board.py (or manually $set columns to a valid list).",
+  "rca of the issue": "PUT /api/boards/{board_id} has no Pydantic validation on the body. allowed_fields is a key whitelist, not a schema. When the frontend (or any client) sends columns as a non-list, the motor update_one writes it as-is. Subsequent reads of that board via the workspace list endpoint use Board(**doc) which triggers Pydantic ValidationError -> FastAPI returns 500 for the whole list. Reproduction: PUT /api/boards/{id} with {'columns':'x'} -> GET /api/boards/workspace/{ws_id} returns 500. Mitigation: introduce a BoardUpdate Pydantic model with columns: Optional[List[Column]] and use it as the request body type."
+}
