@@ -13,6 +13,7 @@ async def create_update(
     update_data: UpdateCreate,
     current_user: dict = Depends(get_current_user)
 ):
+    import re
     from routes.notification_routes import create_notification
 
     # Get user info
@@ -25,15 +26,53 @@ async def create_update(
     )
     await db.updates.insert_one(update.dict())
 
-    # Notify all board members about the comment
+    # Detect @mentions by matching against known board member names
+    content_text = update_data.content or ""
+    mentioned_user_ids = set()
+    if "@" in content_text:
+        # Get all board members to match against
+        item_for_board = await db.items.find_one({"id": update_data.item_id})
+        if item_for_board:
+            board_for_mentions = await db.boards.find_one({"id": item_for_board.get("board_id")})
+            if board_for_mentions:
+                all_member_ids = board_for_mentions.get("member_ids", [])
+                if board_for_mentions.get("owner_id"):
+                    all_member_ids = list(set(all_member_ids + [board_for_mentions["owner_id"]]))
+                all_members = await db.users.find({"id": {"$in": all_member_ids}}).to_list(200)
+                # Sort by name length desc so longer names match first
+                all_members.sort(key=lambda m: len(m.get("name", "")), reverse=True)
+                for member in all_members:
+                    mname = member.get("name", "")
+                    if mname and f"@{mname}" in content_text:
+                        mentioned_user_ids.add(member["id"])
+
+    # Notify about the comment
     item = await db.items.find_one({"id": update_data.item_id})
     if item:
         board = await db.boards.find_one({"id": item.get("board_id")})
         if board:
             user_name = user.get("name", "Someone")
             item_name = item.get("name", "an item")
+            notified = set()
+            
+            # Send @mention notifications first (higher priority)
+            for uid in mentioned_user_ids:
+                if uid != current_user["id"]:
+                    await create_notification(
+                        user_id=uid,
+                        type="mention",
+                        title="You were mentioned",
+                        message=f'{user_name} mentioned you in "{item_name}"',
+                        board_id=item.get("board_id", ""),
+                        item_id=update_data.item_id,
+                        actor_id=current_user["id"],
+                        actor_name=user_name,
+                    )
+                    notified.add(uid)
+
+            # Send general update notifications to remaining members
             for member_id in board.get("member_ids", []):
-                if member_id != current_user["id"]:
+                if member_id != current_user["id"] and member_id not in notified:
                     await create_notification(
                         user_id=member_id,
                         type="update",

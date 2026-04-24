@@ -411,7 +411,7 @@ async def invite_to_board(
         await create_notification(
             user_id=invited_user["id"],
             type="board_invite",
-            title=f"Board shared with you",
+            title="Board shared with you",
             message=f'{inviter_name} shared "{board_name}" with you',
             board_id=board_id,
             actor_id=current_user["id"],
@@ -531,6 +531,23 @@ async def update_member_role(
         )
     
     return {"message": "Role updated successfully"}
+
+
+
+@router.get("/{board_id}/members/list")
+async def get_board_members_list(
+    board_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get list of board members with their names for @mention dropdown."""
+    board = await db.boards.find_one({"id": board_id})
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    member_ids = board.get("member_ids", [])
+    if board.get("owner_id") and board["owner_id"] not in member_ids:
+        member_ids.append(board["owner_id"])
+    users = await db.users.find({"id": {"$in": member_ids}}, {"_id": 0, "hashed_password": 0}).to_list(200)
+    return [{"id": u["id"], "name": u.get("name", ""), "email": u.get("email", "")} for u in users]
 
 
 

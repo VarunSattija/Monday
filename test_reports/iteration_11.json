@@ -1,0 +1,39 @@
+{
+  "summary": "Tested @mentions feature end-to-end: backend board members list, mention detection in POST /api/updates, mention vs update notification typing, and frontend dropdown/highlight rendering. All 5 pytest tests passed and Playwright flow verified dropdown, name insertion, submit, and orange highlighting.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mention dropdown", "issues": ["Dropdown includes the current user (Test User) as a selectable mention option. Typically self is excluded in @mention UIs (e.g., monday.com). Consider filtering out current_user from filteredMembers. Minor UX nit."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration11_mentions.py",
+    "/app/test_reports/pytest/iteration11.xml"
+  ],
+  "action_items": [
+    "Optional: Exclude current user from mention dropdown options for better UX.",
+    "Optional: The split regex in renderCommentContent (`/(@\\w[\\w\\s]*?)(?=\\s@|\\s*$|[,.])/g`) may miss edge cases like multi-word names followed by parenthesis; tested names worked but complex edge cases (e.g., @Name! or Unicode names) may render inconsistently."
+  ],
+  "critical_code_review_comments": [
+    "board_routes.py line 546-548: `member_ids.append(board['owner_id'])` mutates the in-memory MongoDB document (could cause subtle side effects if reused). Minor; recommend creating a new list: `member_ids = list({*member_ids, board['owner_id']})`.",
+    "update_routes.py line 43: `all_members.sort(key=lambda m: len(m.get('name',''))...)` sorts by name length to prefer longer names. Good. However detection uses simple substring match `f'@{mname}' in content_text` which can false-positive on substrings if one member name is a prefix of another (e.g., 'Jo' vs 'John'). Consider word-boundary regex check.",
+    "update_routes.py: Notification ordering is correct (mention first, then update with dedupe via `notified` set). Works well.",
+    "ItemDetailDialog.jsx line 54: `${before}@${member.name} ${after}` - name with spaces is inserted as-is (e.g., '@User Two '). Backend matches this correctly, but could collide if a member name contains trailing whitespace chars. Not a bug in current data.",
+    "ItemDetailDialog.jsx renderCommentContent: regex is fragile for @names ending in punctuation other than `,` or `.` (e.g., '!', '?'). Low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration11_mentions.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100%"},
+  "test_credentials": "User 1: testuser@acuity.com / TestPass123!, User 2: user2@acuity.com / TestPass123!",
+  "seed_data_creation": "Created several comments on 'Boniface' item during tests (some with @User Two mentions, some plain). Test notifications were generated for User 2.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 11 validated @mentions: GET /api/boards/{id}/members/list returns [{id,name,email}] correctly (User 2 present). POST /api/updates with '@User Two ...' creates notification type='mention', title='You were mentioned', with actor name and item name in message. Plain comment creates type='update'. Frontend dropdown ([data-testid=mention-dropdown]) appears with 'Team Members' header and mention-option-{id} entries showing avatar+name+email. Clicking inserts '@Name ' into comment-input. Posted comments render @mentions with .bg-orange-100 highlight. Note: notifications endpoint is GET /api/notifications/me (not /api/notifications). Minor UX suggestion: exclude current user from dropdown.",
+  "rca_of_the_issue": "N/A - all features working as expected. One test file path correction needed during testing: endpoint is /api/notifications/me not /api/notifications; fixed in the test file."
+}
