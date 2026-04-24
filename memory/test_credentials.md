@@ -1,8 +1,8 @@
 # Test Credentials
 
-## Test User
-- Email: testuser@acuity.com
-- Password: TestPass123!
+## Test Users
+- User 1: testuser@acuity.com / TestPass123!
+- User 2: user2@acuity.com / TestPass123!
 
 ## Board
 - Pipeline Board ID: 80443bd5-2839-4909-955b-e13157def5eb
@@ -10,3 +10,6 @@
 
 ## Join Link
 - URL: /join/Acuityprofessional
+
+## Email Service
+- No API key configured yet. Add RESEND_API_KEY or SENDGRID_API_KEY to backend/.env when ready.
