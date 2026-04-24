@@ -10,54 +10,47 @@ Build a replica of monday.com with the branding (logo and theme) of Acuity Profe
 ## Completed Features
 
 ### Phase 1 - Core Platform
-- JWT Auth + auto-team "Acuity-Professional"
-- Workspaces, Folders, Boards, Groups, Items
-- Column CRUD with types: text, status, person, date, numbers, priority, tags, checkbox, link
-- Board sharing, comments, context menu (duplicate, move, delete, export)
-- Shareable join link (/join/Acuityprofessional)
+- JWT Auth + auto-team, Workspaces, Folders, Boards, Groups, Items
+- Column types: text, status, person, date, numbers, priority, tags, checkbox, link, formula
+- Board sharing, comments, duplicate/move/delete, shareable join link
 
 ### Phase 2 - Import/Export & Charts
-- Smart Excel Import with group detection
-- Import into existing board (append mode)
-- Excel Export with group structure + hyperlinks
+- Smart Excel Import with group detection + append mode
+- Excel Export with hyperlinks for link columns
 - Multi-Chart with DB persistence
 
 ### Phase 3 - Table UX
 - Column headers per group, Checkboxes, Insert between rows
-- Floating bulk actions bar (Delete, Move to Group)
-- Export to Excel in board context menu
+- Bulk actions (Delete, Move to Group, Copy/Move to Board)
+- Export to Excel in context menu
 
 ### Phase 4 - Advanced Features
-- Select All checkbox, Copy/Move to Board
-- Favourites (star boards, sidebar section)
-- Links column type with auto-hyperlink
-- Activity Log (who changed what, when, with Undo)
-- Performance pagination (50 items/page)
+- Select All, Favourites (sidebar section), Activity Log with Undo
+- Links column (auto-hyperlink), Performance pagination (50/page)
 
-### Phase 5 - Column Management & Real-time (Apr 24, 2026)
-- **Column Resize** — Drag handle on column header right border; width persists to DB
-- **Column Reorder** — Drag-and-drop column headers; new order saves to DB
-- **Monday.com-style Toolbar** — Search, Person, Filter, Sort, Hide, Group by in horizontal bar
-- **Real-time Collaboration** — WebSocket at /api/ws/board/{board_id}; changes broadcast to other users
-- **Input Validation** — columns/chart_configs validated before DB write (prevents board corruption)
+### Phase 5 - Column Management & Real-time
+- Column Resize (drag handle, persisted), Column Reorder (drag-and-drop)
+- Monday.com-style Toolbar (Search/Person/Filter/Sort/Hide/Group by)
+- Real-time Collaboration via WebSocket
+
+### Phase 6 - Numbers, Formulas & Summary (Apr 24, 2026)
+- **Number Column with Currency** — Unit selector (None/$/ €/£/%), Decimal places (Auto/0/1/2), Direction (L/R). Default £. Numbers display formatted (e.g., £1,296)
+- **Formula Column** — Users enter expressions like `SUM(Exc. Proc, Exc. Fee)` or `col1 - col2`. Supports SUM(), AVG(), arithmetic (+,-,*,/). Auto-evaluates from other column values.
+- **Group Summary Row** — Bottom of each group shows sum totals for all number columns with £ format and "Sum" label
+- **Column Migration** — Existing Pipeline fee columns migrated from text → numbers with £ settings
+- **Import Enhancement** — guess_column_type now detects number columns by header keywords (fee, amount, price, proc, broker, etc.)
 
 ## Key API Endpoints
-- POST /api/import/excel, GET /api/export/excel/{board_id}
-- POST /api/boards/{id}/favorite, GET /api/boards/favorites/me
-- POST /api/boards/bulk-copy, /bulk-move-board
-- POST /api/items/insert-at, /bulk-move, /bulk-delete
-- GET /api/activity/board/{id}, POST /api/activity/{id}/undo
-- WS /api/ws/board/{board_id} (real-time)
-- PUT /api/boards/{id} (columns reorder/resize + validation)
+All endpoints from previous phases plus:
+- POST /api/boards/{id}/columns (now supports settings: {unit, decimals, direction} for numbers, {expression, unit} for formula)
 
 ## P1 - Next Tasks
-- File column uploads (requires file storage)
+- File column uploads (file storage)
 - Email notifications for automations
 
-## P2 - Future Tasks
-- AI Agent functionality (scaffolded)
+## P2 - Future
+- AI Agent functionality
 - Column-level permissions
 - Dashboard widgets
 
-## Testing
-- Iterations 1-8: All passed
+## Testing: Iterations 1-9 (latest: 4/5 backend + 100% frontend)
