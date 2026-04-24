@@ -218,7 +218,7 @@ const BoardPage = () => {
             <History className="h-4 w-4 mr-2" />
             Activity
           </Button>
-          <AddColumnDialog boardId={boardId} onColumnAdded={fetchBoardData} />
+          <AddColumnDialog boardId={boardId} onColumnAdded={fetchBoardData} existingColumns={board?.columns} />
           <Button variant="outline" size="sm" onClick={handleAddGroup}>
             <Plus className="h-4 w-4 mr-2" />
             Add Group

@@ -30,10 +30,26 @@ def guess_column_type(header: str, sample_values: list):
         return "date"
     if h in ("link", "url", "website", "app", "offer", "files"):
         return "link"
+    # Detect number columns by header keywords
+    num_keywords = ("fee", "amount", "price", "cost", "total", "paid", "proc", "broker",
+                    "life fee", "exc.", "payment", "p price", "m amount")
+    if any(kw in h for kw in num_keywords):
+        return "numbers"
     # Check if most sample values are URLs
     url_count = sum(1 for v in sample_values[:10] if v and str(v).startswith("http"))
     if url_count >= len(sample_values[:10]) * 0.5 and url_count >= 2:
         return "link"
+    # Check if most sample values are numeric
+    num_count = 0
+    for v in sample_values[:10]:
+        if v is not None:
+            try:
+                float(str(v).replace(',', '').replace('£', '').replace('$', '').replace('€', ''))
+                num_count += 1
+            except (ValueError, TypeError):
+                pass
+    if num_count >= len(sample_values[:10]) * 0.6 and num_count >= 3:
+        return "numbers"
     for v in sample_values[:5]:
         if v and any(sep in str(v) for sep in ["/", "-"]) and len(str(v)) >= 8:
             try:

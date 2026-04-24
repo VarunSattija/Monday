@@ -23,6 +23,7 @@ class ColumnType(str, Enum):
     FILES = "files"
     CHECKBOX = "checkbox"
     LINK = "link"
+    FORMULA = "formula"
 
 
 class ViewType(str, Enum):
@@ -101,6 +102,7 @@ class BoardColumn(BaseModel):
     type: ColumnType
     width: int = 150
     options: List[ColumnOption] = []  # For status, priority, tags
+    settings: Dict[str, Any] = {}  # For numbers: {unit, decimals, direction}, formula: {expression}
 
 
 class BoardCreate(BaseModel):

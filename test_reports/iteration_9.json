@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 9: Tested number/formula/link column types and group summary rows. Backend: 4/5 pytest tests PASSED - column CRUD for numbers(unit/decimals/direction settings), formula(expression/unit), link all work and persist correctly. Frontend: Add Column dialog shows all 12 types including Numbers/Link/Formula; Numbers settings show Unit (None/$/\u20ac/\u00a3/%), Decimal Places, Direction L/R; Formula settings show Expression textarea + Display Unit. Group summary row + \u00a3 rendering verified to work end-to-end when a 'numbers' type column exists (added TEST column -> 4 group-summary-rows with 4 \u00a3 symbols appeared immediately; then cleaned up). ONE FAILING TEST: the Pipeline board's fee columns (Exc. Proc, Exc. Fee, Exc. Life Fee, Proc Fee, Broker Fee, Life Fee, P Price, M Amount) are still persisted as type='text' in Mongo - they were NOT re-imported/migrated with the updated guess_column_type. As a result, the Pipeline board shows NO group summary rows, NO \u00a3 formatting, and Formula expressions referencing those columns will coerce text -> 0.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/import (or Pipeline data migration)", "issue": "guess_column_type logic has keywords (fee, amount, price, proc, broker, p price, m amount, exc.) that SHOULD map Pipeline's fee columns to type='numbers', but the Pipeline board (80443bd5...) has them all as 'text'. Either the board was never re-imported with the new logic, or the existing board rows weren't migrated. Net effect: the iteration-9 core UX feature (\u00a3 formatting + group summary \u00a3 sums) is invisible on the main board the user cares about. Action: re-run import on the Pipeline source, OR write a one-off migration that re-evaluates guess_column_type for each existing column and updates type+settings where appropriate.", "priority": "HIGH"},
+      {"endpoint": "PUT /api/boards/{id}", "issue": "Carry-over from iter 8: still no Pydantic body validation on 'columns'. Non-list values silently persist and brick GET /api/boards/workspace/{ws_id} with 500. Not re-triggered this run (avoided).", "priority": "HIGH"},
+      {"endpoint": "POST /api/items", "issue": "Carry-over from iter 7/8: returns 500 when 'position' is omitted (None coerced into required int).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "WS /api/ws/board/{id}", "issue": "Carry-over: still no auth, still broadcasts unvalidated client JSON. Also observed flaky close during tests ('WebSocket is closed before the connection is established')."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Pipeline board number display", "issue": "Fee columns render as plain text without \u00a3 (because type='text' in DB). No group summary rows appear. Root cause is backend column-type migration, not frontend.", "affected_selectors": ["[data-testid=group-summary-row]", "[data-testid^=cell-] (number cells)"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration9_features.py",
+    "/app/test_reports/pytest/pytest_iteration9.xml"
+  ],
+  "action_items": [
+    "Migrate existing Pipeline board columns: re-evaluate guess_column_type on 'Exc. Proc', 'Exc. Fee', 'Exc. Life Fee', 'Proc Fee', 'Broker Fee', 'Life Fee', 'P Price', 'M Amount' and update type to 'numbers' with default settings {unit:'pound',decimals:'auto',direction:'L'}. A one-shot DB update script over workspace ac2d85dd-bbbd-4189-a365-9ab682d97860 boards will do. After that, group-summary rows and \u00a3 formatting will appear automatically.",
+    "Consider re-running the full import for the Pipeline board (claim was 'board was re-imported fresh' but the DB shows otherwise).",
+    "Still open from iter 8: add Pydantic BoardUpdate schema to PUT /api/boards/{id} so the columns field cannot be corrupted.",
+    "Still open from iter 7/8: create_item must strip None values or make position truly optional with default 0."
+  ],
+  "critical_code_review_comments": [
+    "TableView.renderGroupSummary correctly guards `if numCols.length === 0 return null` - this is why Pipeline shows no summary. No frontend bug.",
+    "AddColumnDialog: clean and correct - all testids present (add-col-title, add-col-type, unit-{none|dollar|euro|pound|percent}, formula-expr-input). Good coverage.",
+    "TableView.jsx is still ~629 lines with column resize/reorder/toolbar/pagination/summary all in one file (carry-over from iter 7/8 review). Extract renderGroupSummary + useColumnResize + useColumnReorder into modules.",
+    "guess_column_type in routes/import_routes.py uses substring match on lower(header). The list is correct; however it only runs at import time. Existing boards don't auto-migrate when the rule set changes. Consider an admin endpoint POST /api/boards/{id}/reclassify-columns that runs guess_column_type over each column using its current sample_values.",
+    "FormulaCell (not inspected in detail) reportedly references columns by TITLE - if two columns share a title (possible on user boards) evaluation is ambiguous. Consider using column IDs internally and titles only for UX hints."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration9_features.py"
+  ],
+  "success_rate": {
+    "backend": "80% (4/5 tests passed; failing test documents a data-migration gap rather than a code defect)",
+    "frontend": "100% (Add Column dialog, numbers settings with all 5 units + decimals + direction, formula expression input, link type in dropdown, group summary row + \u00a3 render verified end-to-end with a manually-added number column)"
+  },
+  "test_credentials": {
+    "email": "testuser@acuity.com",
+    "password": "TestPass123!",
+    "pipeline_board_id": "80443bd5-2839-4909-955b-e13157def5eb",
+    "workspace_id": "ac2d85dd-bbbd-4189-a365-9ab682d97860"
+  },
+  "seed_data_creation": "Created + deleted a TEST_iter9_columns board for column-CRUD tests. Temporarily added TEST_SumCol (numbers, \u00a3) to Pipeline board for UI verification, then deleted it. Pipeline board left intact.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend col-add payload shape verified: POST /api/boards/{id}/columns with body {title,type,settings} where settings for numbers is {unit:'pound'|'dollar'|'euro'|'percent'|'none',decimals:'auto'|'0'|'1'|...,direction:'L'|'R'} and for formula is {expression:'SUM(col1,col2)',unit:'pound'}. All persist to Mongo and are returned by GET /api/boards/{id}. DELETE col: DELETE /api/boards/{bid}/columns/{cid}. Testids in AddColumnDialog: add-col-title, add-col-type, unit-none, unit-dollar, unit-euro, unit-pound, unit-percent, formula-expr-input. Group summary row testid: group-summary-row. Summary row only renders when at least 1 visible column has type='numbers'; on the Pipeline board TODAY this is never true, so the feature appears invisible until the fee columns are migrated to 'numbers'.",
+  "rca of the issue": "REPRO: 1) GET /api/boards/80443bd5-... -> inspect columns. Expected fee columns (Exc. Proc, Proc Fee, Broker Fee, Life Fee, P Price, M Amount, ...) come back as type='text'. 2) Open board in UI -> no group summary row, no \u00a3. 3) POST a single numbers column (settings {unit:'pound'}) -> reload -> 4 group-summary rows + 4 \u00a3 appear immediately. ROOT CAUSE: guess_column_type was updated to include fee/amount/price/proc/broker/exc. keywords, but the Pipeline board in Mongo still has stored columns from a prior import that used the older rule-set, and no migration was run. MITIGATION: re-run import on the Pipeline CSV/source, OR write a reclassify script that iterates existing columns and applies guess_column_type using item column_values as sample_values, then $set type+settings."
+}

@@ -15,6 +15,8 @@ import PersonCell from './cells/PersonCell';
 import DateCell from './cells/DateCell';
 import TextCell from './cells/TextCell';
 import LinkCell from './cells/LinkCell';
+import NumberCell from './cells/NumberCell';
+import FormulaCell from './cells/FormulaCell';
 import ColumnSettingsMenu from './ColumnSettingsMenu';
 import ItemDetailDialog from './ItemDetailDialog';
 import BoardToolbar from './BoardToolbar';
@@ -302,6 +304,10 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
         return <DateCell value={value} onChange={onChange} />;
       case 'link':
         return <LinkCell value={value} onChange={onChange} />;
+      case 'numbers':
+        return <NumberCell value={value} onChange={onChange} settings={column.settings} />;
+      case 'formula':
+        return <FormulaCell value={value} item={item} columns={board.columns || []} settings={column.settings} />;
       default:
         return <TextCell value={value} onChange={onChange} />;
     }
@@ -325,6 +331,53 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
   }, [groupByColumn, processedItems, board.columns]);
 
   const getColWidth = (col) => columnWidths[col.id] || col.width || 150;
+
+  // Number formatting helper for summaries
+  const UNITS_MAP = { none: '', dollar: '$', euro: '€', pound: '£', percent: '%' };
+  const formatSummaryNumber = (num, col) => {
+    const s = col.settings || {};
+    const symbol = UNITS_MAP[s.unit || 'pound'] || '£';
+    const decimals = s.decimals ?? 'auto';
+    let formatted;
+    if (decimals === 'auto') {
+      formatted = num % 1 === 0 ? num.toLocaleString('en-GB') : num.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      formatted = num.toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+    const dir = s.direction || 'L';
+    if (!symbol) return formatted;
+    return dir === 'L' ? `${symbol}${formatted}` : `${formatted}${symbol}`;
+  };
+
+  const renderGroupSummary = (groupItems, groupColor) => {
+    const numCols = visibleColumns.filter(c => c.type === 'numbers');
+    if (numCols.length === 0) return null;
+
+    return (
+      <div className="flex items-center bg-gray-50 border-t-2 border-gray-200" style={{ borderLeft: `4px solid ${groupColor}` }} data-testid="group-summary-row">
+        <div className="w-10 flex-shrink-0" />
+        <div className="w-64 flex-shrink-0 px-4 py-2 border-r border-gray-200" />
+        {visibleColumns.map(col => {
+          if (col.type !== 'numbers') {
+            return <div key={col.id} className="flex-shrink-0 border-r border-gray-200" style={{ width: `${getColWidth(col)}px` }} />;
+          }
+          // Calculate sum
+          let sum = 0;
+          groupItems.forEach(item => {
+            const raw = item.column_values?.[col.id];
+            const num = parseFloat(String(raw || '0').replace(/[^0-9.-]/g, ''));
+            if (!isNaN(num)) sum += num;
+          });
+          return (
+            <div key={col.id} className="flex-shrink-0 px-4 py-2 border-r border-gray-200 text-center" style={{ width: `${getColWidth(col)}px` }}>
+              <div className="text-sm font-semibold text-gray-700 tabular-nums">{formatSummaryNumber(sum, col)}</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wide">Sum</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderColumnHeaders = (groupColor, groupId) => {
     const gItemIds = groupId ? processedItems.filter(i => i.group_id === groupId).map(i => i.id) : [];
@@ -517,6 +570,8 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                         <Button variant="ghost" size="sm" className="text-orange-600 text-xs" onClick={() => showMore(group.id)} data-testid={`show-more-${group.id}`}>Show more ({groupItems.length - visCount} remaining)</Button>
                       </div>
                     )}
+                    {/* Group Summary Row */}
+                    {!isCollapsed && renderGroupSummary(groupItems, group.color)}
                     {!isCollapsed && (
                       <div className="flex items-center bg-white hover:bg-gray-50 border-t border-gray-100" style={{ borderLeft: `4px solid ${group.color}` }}>
                         <div className="w-10 flex-shrink-0" />
