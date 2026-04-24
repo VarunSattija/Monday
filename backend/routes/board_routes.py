@@ -493,3 +493,113 @@ async def update_member_role(
         )
     
     return {"message": "Role updated successfully"}
+
+
+
+@router.post("/{board_id}/favorite")
+async def toggle_favorite(
+    board_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Toggle board as favorite for the current user."""
+    existing = await db.favorites.find_one({"user_id": current_user["id"], "board_id": board_id})
+    if existing:
+        await db.favorites.delete_one({"user_id": current_user["id"], "board_id": board_id})
+        return {"favorited": False}
+    else:
+        await db.favorites.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "board_id": board_id,
+            "created_at": datetime.utcnow(),
+        })
+        return {"favorited": True}
+
+
+@router.get("/favorites/me")
+async def get_my_favorites(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current user's favorite boards."""
+    favs = await db.favorites.find({"user_id": current_user["id"]}).to_list(100)
+    board_ids = [f["board_id"] for f in favs]
+    if not board_ids:
+        return []
+    boards = await db.boards.find({"id": {"$in": board_ids}}).to_list(100)
+    return [Board(**b) for b in boards]
+
+
+@router.post("/bulk-copy")
+async def bulk_copy_items_to_board(
+    body: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Copy selected items to another board."""
+    item_ids = body.get("item_ids", [])
+    target_board_id = body.get("target_board_id")
+    target_group_id = body.get("target_group_id")
+
+    if not item_ids or not target_board_id:
+        raise HTTPException(status_code=400, detail="item_ids and target_board_id required")
+
+    target_board = await db.boards.find_one({"id": target_board_id})
+    if not target_board:
+        raise HTTPException(status_code=404, detail="Target board not found")
+
+    # If no target group specified, use the first group or create one
+    if not target_group_id:
+        first_group = await db.groups.find_one({"board_id": target_board_id})
+        if first_group:
+            target_group_id = first_group["id"]
+        else:
+            new_group = Group(board_id=target_board_id, title="Copied Items", color="#579bfc")
+            await db.groups.insert_one(new_group.dict())
+            target_group_id = new_group.id
+
+    items = await db.items.find({"id": {"$in": item_ids}}).to_list(len(item_ids))
+    copied = 0
+    for item in items:
+        new_item = Item(
+            board_id=target_board_id,
+            group_id=target_group_id,
+            name=item["name"],
+            column_values=item.get("column_values", {}),
+            created_by=current_user["id"],
+        )
+        await db.items.insert_one(new_item.dict())
+        copied += 1
+
+    return {"message": f"Copied {copied} items", "copied": copied}
+
+
+@router.post("/bulk-move-board")
+async def bulk_move_items_to_board(
+    body: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Move selected items to another board (removes from source)."""
+    item_ids = body.get("item_ids", [])
+    target_board_id = body.get("target_board_id")
+    target_group_id = body.get("target_group_id")
+
+    if not item_ids or not target_board_id:
+        raise HTTPException(status_code=400, detail="item_ids and target_board_id required")
+
+    target_board = await db.boards.find_one({"id": target_board_id})
+    if not target_board:
+        raise HTTPException(status_code=404, detail="Target board not found")
+
+    if not target_group_id:
+        first_group = await db.groups.find_one({"board_id": target_board_id})
+        if first_group:
+            target_group_id = first_group["id"]
+        else:
+            new_group = Group(board_id=target_board_id, title="Moved Items", color="#579bfc")
+            await db.groups.insert_one(new_group.dict())
+            target_group_id = new_group.id
+
+    result = await db.items.update_many(
+        {"id": {"$in": item_ids}},
+        {"$set": {"board_id": target_board_id, "group_id": target_group_id, "updated_at": datetime.utcnow()}}
+    )
+    return {"message": f"Moved {result.modified_count} items", "moved": result.modified_count}

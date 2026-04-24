@@ -97,6 +97,10 @@ async def export_board_to_excel(
                         if ci["type"] in ("status", "priority") and ci["options_map"]:
                             label = ci["options_map"].get(str(raw_val), str(raw_val))
                             ws.cell(row=row, column=col_idx, value=label)
+                        elif ci["type"] == "link" and str(raw_val).startswith("http"):
+                            cell = ws.cell(row=row, column=col_idx, value=str(raw_val))
+                            cell.hyperlink = str(raw_val)
+                            cell.font = Font(color="0563C1", underline="single")
                         else:
                             ws.cell(row=row, column=col_idx, value=str(raw_val))
                 ws.cell(row=row, column=col_idx).border = thin_border

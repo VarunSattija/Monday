@@ -1,0 +1,54 @@
+{
+  "summary": "Iteration 7: Tested 6 new features - Favorites (star/list), Bulk Copy to Board, Bulk Move to Board, Activity Logging (rename + column changes) with Undo, Link column type, Show-more pagination (50/page), and Select All checkbox. Backend: 18/18 pytest tests passed (100%). Frontend: all 6 UI features verified end-to-end on Pipeline Test board (54 items across 4 groups).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/items", "issue": "Regression: POST /api/items returns 500 when 'position' is omitted. ItemCreate now declares 'position: Optional[int] = None' (iter6), but create_item does 'Item(**item_data.dict())' which passes position=None to Item where position is a required int. Any client that doesn't send position (and the existing FE likely doesn't for all flows) now fails. Fix: in routes/item_routes.py create_item, drop None values before spreading, e.g. 'payload = {k:v for k,v in item_data.dict().items() if v is not None}; item = Item(**payload, created_by=...)'.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/boards/bulk-copy, /api/boards/bulk-move-board, /api/activity/{id}/undo", "issue": "No authorization check - any authenticated user can copy/move items between arbitrary boards and can undo any activity by id (no verification that the user owns/belongs to the board). Add board membership check mirroring existing patterns."},
+      {"endpoint": "POST /api/activity/{id}/undo", "issue": "Undo only restores previous column_values (via previous_state), but for 'renamed' activities previous_state is empty {} so rename undo is a no-op. Store {'name': old_value} in previous_state for renames too."},
+      {"endpoint": "POST /api/boards/bulk-copy / bulk-move-board", "issue": "Uses raw dict body instead of Pydantic schema - no schema validation / OpenAPI docs. Create BulkCopyRequest / BulkMoveBoardRequest models."},
+      {"endpoint": "POST /api/items/{id} PUT activity logging", "issue": "Iterates new_cv keys only, so clearing a column (sending {} without that key) produces no activity entry. Also stringifies dict/list column values via str(), yielding '{\\\"id\\\":...}' in old_value/new_value; consider serializing to JSON or formatting per column type."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Activity Log panel", "issues": ["Entries show 'item_name (Updated)' inside a hover-tooltip overlay that overlaps the value badges and makes the row visually cluttered (see activity_log.png) - consider moving the '(Updated)' indicator below the item name or tightening spacing."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7_features.py",
+    "/app/test_reports/pytest/pytest_iteration7.xml"
+  ],
+  "action_items": [
+    "FIX HIGH: create_item in /app/backend/routes/item_routes.py - strip None fields before Item(**...) so omitted position (and any future optional fields) don't cause 500s.",
+    "Add board-membership authorization to bulk-copy, bulk-move-board, and /activity/{id}/undo endpoints.",
+    "Populate previous_state={'name': old_name} for 'renamed' activity entries so Undo can restore the old name.",
+    "Replace raw dict Body with typed Pydantic request models for bulk-copy / bulk-move-board.",
+    "Add data-testid to the 'Activity' button in BoardPage.jsx header (e.g. data-testid='open-activity-log-btn') for stable testing."
+  ],
+  "critical_code_review_comments": [
+    "activity_helper.log_activity stores previous_state only for column_values updates; rename flow omits it so undo does nothing for renames.",
+    "board_routes.py bulk_copy_items_to_board copies only name + column_values - loses position and updated_at history. Assign position=max(position)+1 in target group to avoid all copies landing at position=0.",
+    "activity_routes.get_board_activities has no pagination beyond 'limit' query, and no board-membership check - any authenticated user can read any board's activity history by id.",
+    "item_routes.update_item reads board columns for every update purely to resolve column titles - cache or pass the title map; for boards with many columns this adds a DB round trip per PUT.",
+    "TableView.jsx continues to grow (now includes bulk copy/move to board + pagination logic) - extract useBulkSelection and a BulkActionsBar component."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration7_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (6/6 features verified: Favourites sidebar+star, Select All header, Copy/Move to Board bulk buttons, Activity Log panel with Undo, Link column type in AddColumnDialog, Show-more pagination)"
+  },
+  "test_credentials": {
+    "test_user": "testuser@acuity.com / TestPass123!",
+    "pipeline_board_id": "8110ddb1-2cd2-4ce6-a27d-a4ef5120744a"
+  },
+  "seed_data_creation": "Session-scoped fixtures create TEST_Iter7_Source_<ts> and TEST_Iter7_Target_<ts> boards (with 1 group and 3 items each) for bulk copy/move/activity tests; both are deleted in teardown. Pipeline Test board is left favorited for the current user at end of FavoritesTest suite (intentional, visible in sidebar).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new iter7 endpoints verified: POST /api/boards/{id}/favorite (toggle), GET /api/boards/favorites/me, POST /api/boards/bulk-copy, POST /api/boards/bulk-move-board, POST /api/activity/{id}/undo, GET /api/activity/board/{id} (returns id, board_id, user_id, user_name, action, item_name, column_name, old_value, new_value, item_id, previous_state, created_at). Activities are auto-logged from PUT /api/items/{id} on name change (action='renamed') and column_values change (action='updated'). Frontend testids: select-all-{groupId}, show-more-{groupId}, bulk-actions-bar, bulk-delete-btn, bulk-move-btn, bulk-copy-board-btn, bulk-move-board-btn, activity-list, activity-{id}, undo-{id}, favorite-{boardId}. Activity button in BoardPage header does NOT have a data-testid - use 'button:has-text(\"Activity\")'. IMPORTANT regression: POST /api/items without 'position' returns 500 - include position in payload when creating items in new tests. Test artifacts: /app/backend/tests/test_iteration7_features.py (18 tests), /app/test_reports/pytest/pytest_iteration7.xml."
+}

@@ -38,6 +38,7 @@ const AddColumnDialog = ({ boardId, onColumnAdded }) => {
     { value: 'tags', label: 'Tags' },
     { value: 'checkbox', label: 'Checkbox' },
     { value: 'files', label: 'Files' },
+    { value: 'link', label: 'Link' },
   ];
 
   const getDefaultOptions = (type) => {

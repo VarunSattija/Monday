@@ -28,6 +28,12 @@ def guess_column_type(header: str, sample_values: list):
     if h in ("date", "due date", "deadline", "start date", "end date", "timeline",
              "date sign up", "comp date", "inv date", "pred comp", "pred pay"):
         return "date"
+    if h in ("link", "url", "website", "app", "offer", "files"):
+        return "link"
+    # Check if most sample values are URLs
+    url_count = sum(1 for v in sample_values[:10] if v and str(v).startswith("http"))
+    if url_count >= len(sample_values[:10]) * 0.5 and url_count >= 2:
+        return "link"
     for v in sample_values[:5]:
         if v and any(sep in str(v) for sep in ["/", "-"]) and len(str(v)) >= 8:
             try:

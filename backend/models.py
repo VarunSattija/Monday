@@ -22,6 +22,7 @@ class ColumnType(str, Enum):
     TAGS = "tags"
     FILES = "files"
     CHECKBOX = "checkbox"
+    LINK = "link"
 
 
 class ViewType(str, Enum):

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal, Star } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -28,20 +28,26 @@ const Sidebar = ({ onOpenImport }) => {
   const [newFolderName, setNewFolderName] = useState('');
   const [renamingFolderId, setRenamingFolderId] = useState(null);
   const [renamingFolderName, setRenamingFolderName] = useState('');
+  const [favorites, setFavorites] = useState([]);
+  const [showFavorites, setShowFavorites] = useState(true);
 
   const fetchFolders = useCallback(async () => {
     if (!currentWorkspace) return;
     try {
       const res = await api.get(`/folders/workspace/${currentWorkspace.id}`);
       setFolders(res.data);
-    } catch (error) {
-      // silently fail
-    }
+    } catch (error) { /* silently fail */ }
   }, [currentWorkspace]);
 
-  useEffect(() => {
-    fetchFolders();
-  }, [fetchFolders]);
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const res = await api.get('/boards/favorites/me');
+      setFavorites(res.data);
+    } catch (error) { /* silently fail */ }
+  }, []);
+
+  useEffect(() => { fetchFolders(); }, [fetchFolders]);
+  useEffect(() => { fetchFavorites(); }, [fetchFavorites]);
 
   const handleLogout = () => {
     logout();
@@ -155,6 +161,30 @@ const Sidebar = ({ onOpenImport }) => {
             <Zap className="h-4 w-4 mr-3" /> Automations
           </Button>
         </div>
+
+        {/* Favourites */}
+        {favorites.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
+                <Star className="h-3 w-3 text-amber-500" /> Favourites
+              </h3>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowFavorites(!showFavorites)}>
+                {showFavorites ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+            {showFavorites && (
+              <div className="space-y-0.5">
+                {favorites.map((board) => (
+                  <BoardItem key={board.id} board={board} folders={folders} onMove={handleMoveBoardToFolder} isFavorite onToggleFavorite={async () => {
+                    await api.post(`/boards/${board.id}/favorite`);
+                    fetchFavorites();
+                  }} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Boards + Folders */}
         <div>
@@ -294,10 +324,21 @@ const Sidebar = ({ onOpenImport }) => {
   );
 };
 
-const BoardItem = ({ board, folders, onMove, shared }) => {
+const BoardItem = ({ board, folders, onMove, shared, isFavorite, onToggleFavorite }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = location.pathname === `/boards/${board.id}`;
+
+  const handleToggleFavorite = async (e) => {
+    e.stopPropagation();
+    if (onToggleFavorite) {
+      onToggleFavorite();
+    } else {
+      try {
+        await api.post(`/boards/${board.id}/favorite`);
+      } catch (err) { /* silent */ }
+    }
+  };
 
   return (
     <div className="flex items-center group">
@@ -306,8 +347,17 @@ const BoardItem = ({ board, folders, onMove, shared }) => {
         className={`w-full justify-start text-sm h-7 px-2 ${isActive ? 'bg-orange-50 text-orange-600' : ''}`}
         onClick={() => navigate(`/boards/${board.id}`)}
       >
-        <span className={`w-2 h-2 rounded-full ${shared ? 'bg-blue-500' : 'bg-orange-500'} mr-2 flex-shrink-0`} />
+        <span className={`w-2 h-2 rounded-full ${shared ? 'bg-blue-500' : isFavorite ? 'bg-amber-500' : 'bg-orange-500'} mr-2 flex-shrink-0`} />
         <span className="truncate">{board.name}</span>
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`h-5 w-5 p-0 flex-shrink-0 ${isFavorite ? 'text-amber-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-500'}`}
+        onClick={handleToggleFavorite}
+        data-testid={`favorite-${board.id}`}
+      >
+        <Star className={`h-3 w-3 ${isFavorite ? 'fill-current' : ''}`} />
       </Button>
       {!shared && folders && folders.length > 0 && (
         <DropdownMenu>

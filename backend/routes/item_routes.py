@@ -4,6 +4,7 @@ from auth import get_current_user
 from typing import List
 from datetime import datetime
 from database import get_db
+from routes.activity_helper import log_activity
 
 router = APIRouter(prefix="/items", tags=["items"])
 db = get_db()
@@ -124,15 +125,56 @@ async def update_item(
     item = await db.items.find_one({"id": item_id})
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     update_data = {k: v for k, v in item_data.dict().items() if v is not None}
     update_data["updated_at"] = datetime.utcnow()
-    
+
+    # Log column_values changes for activity
+    if "column_values" in update_data and item.get("board_id"):
+        board = await db.boards.find_one({"id": item["board_id"]})
+        col_map = {}
+        if board:
+            for col in board.get("columns", []):
+                col_map[col["id"]] = col.get("title", col["id"])
+        old_cv = item.get("column_values", {})
+        new_cv = update_data["column_values"]
+        for col_id, new_val in new_cv.items():
+            old_val = old_cv.get(col_id)
+            old_str = str(old_val) if old_val else ""
+            new_str = str(new_val) if new_val else ""
+            if old_str != new_str:
+                await log_activity(
+                    board_id=item["board_id"],
+                    user_id=current_user["id"],
+                    user_name=current_user.get("name", ""),
+                    action="updated",
+                    item_name=item.get("name", ""),
+                    column_name=col_map.get(col_id, col_id),
+                    old_value=old_str,
+                    new_value=new_str,
+                    item_id=item_id,
+                    previous_state={"column_values": old_cv},
+                )
+
+    # Log name change
+    if "name" in update_data and update_data["name"] != item.get("name") and item.get("board_id"):
+        await log_activity(
+            board_id=item["board_id"],
+            user_id=current_user["id"],
+            user_name=current_user.get("name", ""),
+            action="renamed",
+            item_name=item.get("name", ""),
+            column_name="Name",
+            old_value=item.get("name", ""),
+            new_value=update_data["name"],
+            item_id=item_id,
+        )
+
     await db.items.update_one(
         {"id": item_id},
         {"$set": update_data}
     )
-    
+
     updated_item = await db.items.find_one({"id": item_id})
     return Item(**updated_item)
 

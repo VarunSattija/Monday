@@ -10,29 +10,29 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Badge } from '../ui/badge';
-import { History, Search, User, Zap, Filter, RefreshCw, FileText } from 'lucide-react';
-import { format } from 'date-fns';
+import { Avatar, AvatarFallback } from '../ui/avatar';
+import { History, Search, Clock, Undo2, Type, Hash, Calendar, Link2, ListChecks } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from '../../hooks/use-toast';
+
+const getColumnIcon = (colName) => {
+  const n = (colName || '').toLowerCase();
+  if (n.includes('date') || n.includes('comp') || n.includes('pred')) return <Calendar className="h-3.5 w-3.5" />;
+  if (n.includes('status') || n.includes('paid') || n.includes('nbr') || n.includes('life') || n.includes('flag')) return <ListChecks className="h-3.5 w-3.5" />;
+  if (n.includes('link') || n.includes('app') || n.includes('offer') || n.includes('file')) return <Link2 className="h-3.5 w-3.5" />;
+  if (n.includes('no') || n.includes('fee') || n.includes('proc') || n.includes('amount') || n.includes('price')) return <Hash className="h-3.5 w-3.5" />;
+  return <Type className="h-3.5 w-3.5" />;
+};
 
 const ActivityLog = ({ open, onClose }) => {
   const { boardId } = useParams();
   const [activities, setActivities] = useState([]);
-  const [filteredActivities, setFilteredActivities] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPerson, setFilterPerson] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (open && boardId) {
-      fetchActivities();
-    }
+    if (open && boardId) fetchActivities();
   }, [open, boardId]);
-
-  useEffect(() => {
-    filterActivities();
-  }, [activities, searchTerm, filterPerson]);
 
   const fetchActivities = async () => {
     try {
@@ -46,156 +46,110 @@ const ActivityLog = ({ open, onClose }) => {
     }
   };
 
-  const filterActivities = () => {
-    let filtered = activities;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (act) =>
-          act.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          act.details.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterPerson) {
-      filtered = filtered.filter((act) => act.user_id === filterPerson);
-    }
-
-    setFilteredActivities(filtered);
-  };
-
-  const handleUndo = async (activityId) => {
+  const handleUndo = async (activity) => {
     try {
-      await api.post(`/activity/${activityId}/undo`);
+      await api.post(`/activity/${activity.id}/undo`);
+      toast({ title: 'Undone', description: 'Change reverted' });
       fetchActivities();
     } catch (error) {
-      console.error('Error undoing activity:', error);
+      toast({ title: 'Error', description: 'Failed to undo', variant: 'destructive' });
     }
   };
 
-  const getActionIcon = (action) => {
-    switch (action) {
-      case 'created':
-        return <FileText className="h-4 w-4" />;
-      case 'updated':
-        return <RefreshCw className="h-4 w-4" />;
-      case 'deleted':
-        return <History className="h-4 w-4" />;
-      case 'automation':
-        return <Zap className="h-4 w-4" />;
-      default:
-        return <History className="h-4 w-4" />;
-    }
+  const filtered = searchTerm
+    ? activities.filter(a =>
+        (a.item_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.column_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.user_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : activities;
+
+  const formatTime = (dateStr) => {
+    try {
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: false });
+    } catch { return ''; }
+  };
+
+  const renderValueBadge = (val) => {
+    if (!val || val === 'undefined' || val === 'None') return <span className="inline-block px-3 py-1 bg-gray-200 rounded text-xs text-gray-500">-</span>;
+    const lower = (val || '').toLowerCase();
+    if (lower === 'yes' || lower === 'done' || lower === 'completed')
+      return <span className="inline-block px-3 py-1 bg-green-500 text-white rounded text-xs font-medium">{val}</span>;
+    if (lower === 'no' || lower === 'stuck' || lower === 'nfa')
+      return <span className="inline-block px-3 py-1 bg-red-500 text-white rounded text-xs font-medium">{val}</span>;
+    if (lower.startsWith('http'))
+      return <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium truncate max-w-[100px]">{val.substring(0, 30)}...</span>;
+    return <span className="inline-block px-3 py-1 bg-white border border-gray-200 rounded text-xs">{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>;
   };
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[600px] sm:w-[800px]">
-        <SheetHeader>
+      <SheetContent className="w-[600px] sm:w-[700px] p-0 flex flex-col">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Activity Log
           </SheetTitle>
-          <SheetDescription>
-            Track all changes made to this board
-          </SheetDescription>
+          <SheetDescription>Track all changes made to this board</SheetDescription>
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input placeholder="Search by item, column, or person..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" data-testid="activity-search" />
+          </div>
         </SheetHeader>
 
-        <Tabs defaultValue="activity" className="mt-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            <TabsTrigger value="efficiency">Efficiency</TabsTrigger>
-            <TabsTrigger value="last-viewed">Last viewed</TabsTrigger>
-            <TabsTrigger value="updates">Updates</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="activity" className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search activities..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon">
-                <User className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon">
-                <Zap className="h-4 w-4" />
-              </Button>
+        <div className="flex-1 overflow-y-auto" data-testid="activity-list">
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading activities...</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <History className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p className="font-medium">No activity yet</p>
+              <p className="text-sm mt-1">Changes to items will appear here</p>
             </div>
-
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">Loading activities...</div>
-              ) : filteredActivities.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No activities found</div>
-              ) : (
-                filteredActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={activity.user_avatar} />
-                      <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs">
-                        {activity.user_name?.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{activity.user_name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {getActionIcon(activity.action)}
-                          <span className="ml-1">{activity.action}</span>
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{activity.details}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {format(new Date(activity.created_at), 'MMM d, yyyy HH:mm')}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUndo(activity.id)}
-                      className="text-xs"
-                    >
-                      Undo
-                    </Button>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filtered.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 px-6 py-3.5 hover:bg-blue-50/40 transition-colors" data-testid={`activity-${activity.id}`}>
+                  {/* Time */}
+                  <div className="flex items-center gap-1 text-xs text-gray-400 w-14 flex-shrink-0">
+                    <Clock className="h-3 w-3" />
+                    <span>{formatTime(activity.created_at)}</span>
                   </div>
-                ))
-              )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="efficiency">
-            <div className="text-center py-12 text-gray-500">
-              <Zap className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>Efficiency metrics coming soon</p>
-            </div>
-          </TabsContent>
+                  {/* User Avatar */}
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="bg-gradient-to-br from-rose-400 to-rose-500 text-white text-xs font-bold">
+                      {(activity.user_name || '?').substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-          <TabsContent value="last-viewed">
-            <div className="text-center py-12 text-gray-500">
-              <History className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>Last viewed history coming soon</p>
-            </div>
-          </TabsContent>
+                  {/* Item Name */}
+                  <span className="text-sm font-medium text-gray-800 truncate max-w-[140px] flex-shrink-0" title={activity.item_name}>
+                    {activity.item_name || 'Item'}
+                  </span>
 
-          <TabsContent value="updates">
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>Updates feed coming soon</p>
+                  {/* Column Icon + Name */}
+                  <div className="flex items-center gap-1 text-gray-500 flex-shrink-0">
+                    {getColumnIcon(activity.column_name)}
+                    <span className="text-xs font-medium">{activity.column_name || activity.action}</span>
+                  </div>
+
+                  {/* Old Value → New Value */}
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                    {activity.old_value && renderValueBadge(activity.old_value)}
+                    {activity.old_value && activity.new_value && <span className="text-gray-400 text-xs">→</span>}
+                    {activity.new_value && renderValueBadge(activity.new_value)}
+                  </div>
+
+                  {/* Undo */}
+                  <Button variant="outline" size="sm" className="text-xs flex-shrink-0 h-7" onClick={() => handleUndo(activity)} data-testid={`undo-${activity.id}`}>
+                    <Undo2 className="h-3 w-3 mr-1" /> Undo
+                  </Button>
+                </div>
+              ))}
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );
