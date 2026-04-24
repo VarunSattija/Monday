@@ -1,7 +1,8 @@
 import React from 'react';
-import { Search, Bell, HelpCircle } from 'lucide-react';
+import { Search, HelpCircle } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import NotificationsPanel from './NotificationsPanel';
 
 const Header = ({ title, actions }) => {
   return (
@@ -25,9 +26,7 @@ const Header = ({ title, actions }) => {
         {actions}
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-        </Button>
+        <NotificationsPanel />
 
         {/* Help */}
         <Button variant="ghost" size="icon">

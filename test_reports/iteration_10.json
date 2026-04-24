@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 10: Tested notifications + email-infra. 8/8 backend pytest PASS after fixing 2 backend bugs in board_routes.invite_to_board (missing `import os` causing NameError, and unserializable Mongo _id in return payload). Frontend notifications UI fully verified: bell + red unread badge, slide-out panel with All/Mentioned/Assigned tabs, Unread-only toggle, search, notification rows with avatar+bold actor+message+type icon+timestamp+blue unread dot, Mark-all-as-read button visible. User2 received new board_invite and update notifications from User1 with correct actor_name='Test User' (not 'Someone'). Previous 'Someone' notification is legacy data from before the name-lookup fix — expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/boards/{id}/invite", "issue": "FIXED during this run: (1) `os` was used but not imported -> NameError; (2) invitation dict returned after insert_one carried Mongo ObjectId -> 500 serialization error. Both resolved in /app/backend/routes/board_routes.py."},
+      {"endpoint": "PUT /api/notifications/{id}/read", "issue": "Returns 200 even when notification does not belong to caller (silent no-op via user_id filter). Not a bug but worth returning 404 for clarity."},
+      {"endpoint": "PUT /api/notifications/{id}/read", "issue": "`update_one` result.modified_count not checked — endpoint always returns 'Marked as read' even for non-existent ids."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "NotificationsPanel Sheet", "issues": ["aria-describedby warning on DialogContent (a11y)", "Notification text uses `message.replace(actor_name, '')` which duplicates the name elsewhere if actor_name substring appears inside message; acceptable for current messages but brittle — prefer a separate actor_name prefix + independent body field"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10_notifications.py",
+    "/app/test_reports/pytest/pytest_iteration10.xml"
+  ],
+  "action_items": [
+    "(Optional) In /app/backend/routes/notification_routes.py return 404 from mark_as_read when modified_count==0 so UI can surface real errors.",
+    "(Optional) Add RESEND_API_KEY or SENDGRID_API_KEY to backend/.env to enable actual email sending — infra is ready (email_helper.py supports both providers). Currently emails are logged only (MOCKED — highlighted).",
+    "(Optional) Redesign notification message payload to have {actor_name, verb, subject} fields rather than baking actor_name into message and stripping it client-side.",
+    "Carry-over from iter 7/8/9 (not related to this iteration, still open): position required on POST /api/items, and the Pipeline fee columns still type='text' (needs migration/reclassify).",
+    "Legacy notification with actor_name='Someone' exists in db.notifications for user2 (from a pre-fix invite). Optional: one-time migration that backfills actor_name by looking up actor_id->users.name."
+  ],
+  "critical_code_review_comments": [
+    "board_routes.py line 421 used os.environ without importing os — classic dormant bug that only triggered when invite endpoint was hit. Now fixed.",
+    "Pymongo insert_one mutates the input dict adding _id:ObjectId; returning the same dict to FastAPI causes JSON encoder failure. Pattern repeated across other routes — audit recommended. Safer: insert a copy, or always `.pop('_id', None)` before returning.",
+    "notification_routes.py does not bound `limit` — caller can request e.g. limit=10_000_000. Add max cap (e.g. min(limit, 200)).",
+    "create_notification stores datetime.utcnow() (tz-naive). Combined with Mongo's serialization this is fine, but prefer datetime.now(timezone.utc) across the codebase.",
+    "update_routes.create_update fires notifications inline within the request path — for a board with many members this will add latency. Consider BackgroundTasks.",
+    "email_helper.send_email silently logs and returns False when no key — which is desired — but callers don't inspect the return value. That's fine now but worth documenting.",
+    "Header.jsx mounts <NotificationsPanel /> always — the 15s polling runs on every page. Consider swapping to WebSocket push (ws_routes.py exists)."
+  ],
+  "updated_files": [
+    "/app/backend/routes/board_routes.py (added `import os`; pop `_id` from invitation before return)",
+    "/app/backend/tests/test_iteration10_notifications.py (new)"
+  ],
+  "success_rate": {"backend": "100% (8/8 pytest)", "frontend": "100% (bell, badge, tabs, search, unread toggle, list, mark-all-read, type icons, blue unread dot all verified visually and via testids)"},
+  "test_credentials": {
+    "user1_email": "testuser@acuity.com",
+    "user1_password": "TestPass123!",
+    "user2_email": "user2@acuity.com",
+    "user2_password": "TestPass123!",
+    "pipeline_board_id": "80443bd5-2839-4909-955b-e13157def5eb"
+  },
+  "seed_data_creation": "Created an extra board_invite notification (User1 -> User2 on Pipeline) and a test comment 'TEST_iter10_comment_<uuid>' on the first Pipeline item (which generated an update-type notification for User2). Called read-all for User2 during tests so User2's unread count may now be 0 or low at handoff.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Testids: notifications-bell, unread-badge, tab-all, tab-mentioned, tab-assigned, unread-only-toggle, notification-search, notification-list, notification-{id}, mark-read-{id}, mark-all-read-btn. Endpoints: GET /api/notifications/me, GET /api/notifications/me/unread-count, PUT /api/notifications/{id}/read, PUT /api/notifications/read-all, POST /api/boards/{board_id}/invite?email=...&role=member. MOCKED: Email sending via Resend/SendGrid is infrastructure-only — no API key set, emails only logged. If you add a key, it lives in backend/.env as RESEND_API_KEY or SENDGRID_API_KEY; FROM_EMAIL default is noreply@acuity-professional.com.",
+  "rca of the issue": "ROOT CAUSE 1: /app/backend/routes/board_routes.py referenced `os.environ.get('APP_URL', ...)` inside invite_to_board but the module never imported `os`. Every invite request raised `NameError: name 'os' is not defined` -> 500. ROOT CAUSE 2: After `await db.board_invitations.insert_one(invitation)`, PyMongo sets `invitation['_id'] = ObjectId(...)`. The endpoint returned the same dict which FastAPI's jsonable_encoder cannot serialize -> 500 with `TypeError: 'ObjectId' object is not iterable`. REPRO: curl -X POST /api/boards/<id>/invite?email=foo@bar&role=member with a valid bearer token -> 500 before fix; 200 after. FIX: added `import os` at top of board_routes.py and `invitation.pop('_id', None)` before returning. Verified via test_iteration10_notifications.py: test_board_invite_creates_notification_with_actor_name now PASSES with actor_name='Test User'."
+}

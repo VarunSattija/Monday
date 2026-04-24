@@ -8,6 +8,7 @@ from database import get_db
 router = APIRouter(prefix="/boards", tags=["boards"])
 db = get_db()
 import uuid
+import os
 
 
 def get_default_columns():
@@ -383,6 +384,9 @@ async def invite_to_board(
     role: str = "member",
     current_user: dict = Depends(get_current_user)
 ):
+    from routes.notification_routes import create_notification
+    from routes.email_helper import send_email, build_board_invite_email
+
     board = await db.boards.find_one({"id": board_id})
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
@@ -391,6 +395,9 @@ async def invite_to_board(
     if current_user["id"] not in board.get("member_ids", []) and board["owner_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to invite members")
     
+    inviter_name = current_user.get("name", "Someone")
+    board_name = board.get("name", "a board")
+
     # Find user by email
     invited_user = await db.users.find_one({"email": email})
     if invited_user:
@@ -400,7 +407,22 @@ async def invite_to_board(
                 {"id": board_id},
                 {"$push": {"member_ids": invited_user["id"]}}
             )
+        # Create in-app notification for the invited user
+        await create_notification(
+            user_id=invited_user["id"],
+            type="board_invite",
+            title=f"Board shared with you",
+            message=f'{inviter_name} shared "{board_name}" with you',
+            board_id=board_id,
+            actor_id=current_user["id"],
+            actor_name=inviter_name,
+        )
     
+    # Send email notification
+    app_url = os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
+    subject, html = build_board_invite_email(inviter_name, board_name, f"{app_url}/boards/{board_id}")
+    await send_email(email, subject, html)
+
     # Also store the invitation for tracking
     invitation = {
         "id": str(uuid.uuid4()),
@@ -412,6 +434,7 @@ async def invite_to_board(
         "status": "accepted" if invited_user else "pending"
     }
     await db.board_invitations.insert_one(invitation)
+    invitation.pop("_id", None)
     
     return {"message": "Invitation sent successfully", "invitation": invitation}
 

@@ -13,6 +13,8 @@ async def create_update(
     update_data: UpdateCreate,
     current_user: dict = Depends(get_current_user)
 ):
+    from routes.notification_routes import create_notification
+
     # Get user info
     user = await db.users.find_one({"id": current_user["id"]})
     
@@ -22,6 +24,27 @@ async def create_update(
         user_name=user.get("name", "Unknown")
     )
     await db.updates.insert_one(update.dict())
+
+    # Notify all board members about the comment
+    item = await db.items.find_one({"id": update_data.item_id})
+    if item:
+        board = await db.boards.find_one({"id": item.get("board_id")})
+        if board:
+            user_name = user.get("name", "Someone")
+            item_name = item.get("name", "an item")
+            for member_id in board.get("member_ids", []):
+                if member_id != current_user["id"]:
+                    await create_notification(
+                        user_id=member_id,
+                        type="update",
+                        title="New comment",
+                        message=f'{user_name} wrote an update on "{item_name}"',
+                        board_id=item.get("board_id", ""),
+                        item_id=update_data.item_id,
+                        actor_id=current_user["id"],
+                        actor_name=user_name,
+                    )
+
     return update
 
 

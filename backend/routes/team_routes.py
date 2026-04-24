@@ -268,6 +268,29 @@ async def invite_member_by_email(
         {"$push": {"members": new_member.dict()}}
     )
     
+    # Send email + in-app notification
+    from routes.notification_routes import create_notification
+    from routes.email_helper import send_email, build_invite_email
+    import os
+
+    inviter_name = current_user.get("name", "Someone")
+    team_name = team.get("name", "a team")
+
+    if existing_user:
+        await create_notification(
+            user_id=existing_user["id"],
+            type="team_invite",
+            title="Team invitation",
+            message=f'{inviter_name} added you to team "{team_name}"',
+            actor_id=current_user["id"],
+            actor_name=inviter_name,
+        )
+
+    app_url = os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
+    team_slug = team_name.replace(" ", "").replace("-", "")
+    subject, html = build_invite_email(inviter_name, team_name, f"{app_url}/join/{team_slug}")
+    await send_email(invite_data.email, subject, html)
+
     return {"message": f"Invitation sent to {invite_data.email}", "member": new_member.dict()}
 
 

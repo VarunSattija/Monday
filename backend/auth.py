@@ -46,6 +46,7 @@ def decode_token(token: str) -> dict:
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    from database import get_db
     token = credentials.credentials
     payload = decode_token(token)
     user_id: str = payload.get("sub")
@@ -54,4 +55,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
-    return {"id": user_id, "email": payload.get("email")}
+    db = get_db()
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+    return {"id": user_id, "email": user.get("email", payload.get("email", "")), "name": user.get("name", "")}
