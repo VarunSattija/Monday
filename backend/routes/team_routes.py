@@ -166,14 +166,18 @@ async def remove_team_member(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Check if current user is admin
-    is_admin = any(
-        member["user_id"] == current_user["id"] and member["role"] == "admin"
+    # Any authenticated team member can remove others
+    is_member = any(
+        member["user_id"] == current_user["id"]
         for member in team.get("members", [])
     )
     
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Only admins can remove members")
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Must be a team member to manage members")
+    
+    # Cannot remove yourself
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot remove yourself")
     
     # Update member status to removed
     await db.teams.update_one(
@@ -195,14 +199,14 @@ async def update_member_role(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Check if current user is admin
-    is_admin = any(
-        member["user_id"] == current_user["id"] and member["role"] == "admin"
+    # Any team member can change roles
+    is_member = any(
+        member["user_id"] == current_user["id"]
         for member in team.get("members", [])
     )
     
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Only admins can change roles")
+    if not is_member:
+        raise HTTPException(status_code=403, detail="Must be a team member")
     
     # Update member role
     await db.teams.update_one(
@@ -223,14 +227,7 @@ async def invite_member_by_email(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Check if current user is a team member
-    is_member = any(
-        member["user_id"] == current_user["id"]
-        for member in team.get("members", [])
-    )
-    
-    if not is_member:
-        raise HTTPException(status_code=403, detail="Only team members can invite others")
+    # Any authenticated user can invite others to the team
     
     # Check if email is already in team
     member_exists = any(

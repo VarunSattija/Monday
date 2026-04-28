@@ -492,15 +492,24 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
       {/* Toolbar */}
       <BoardToolbar
         columns={board.columns}
+        boardId={board.id}
         onSearch={handleToolbarSearch}
         onFilterColumn={handleToolbarFilter}
         onSort={handleToolbarSort}
         onHideColumns={handleToolbarHide}
         onGroupBy={handleToolbarGroupBy}
+        onApplyView={(view) => {
+          if (view.filters?.columnId) setFilterConfig(view.filters);
+          else setFilterConfig(null);
+          if (view.sort?.columnId) setSortConfig(view.sort);
+          else setSortConfig(null);
+          setGroupByColumn(view.group_by || null);
+          setCollapsedColumns(new Set(view.hidden_columns || []));
+        }}
         hiddenColumns={collapsedColumns}
-        activeFilter={!!filterConfig}
-        activeSort={!!sortConfig}
-        activeGroupBy={!!groupByColumn}
+        activeFilter={filterConfig}
+        activeSort={sortConfig}
+        activeGroupBy={groupByColumn}
       />
 
       <div className="flex-1 overflow-auto bg-gray-50">

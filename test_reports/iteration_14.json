@@ -1,0 +1,48 @@
+{
+  "summary": "Tested iteration 14: team invite/remove fix + Custom Board Views CRUD. Backend pytest 10/10 PASS. Frontend invite (no 'Only team members' error), remove member buttons (13 visible for non-admin), and Saved Views (create + list + appear in dropdown + 'Views (1)' counter) all verified end-to-end via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "BoardToolbar.jsx (Views dropdown)",
+        "issue": "Clicking 'Save current view' (a Radix DropdownMenuItem) auto-closes the dropdown, so the view-name input field never becomes visible inline. User has to re-open the Views dropdown to find the input. Fix: prevent default close on this menu item, e.g. onSelect={(e) => { e.preventDefault(); setSavingView(true); }}, or use a non-DropdownMenuItem element for the Save trigger.",
+        "selector": "[data-testid=\"save-view-btn\"]",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "TeamPage.jsx",
+        "issue": "React console error: 'Encountered two children with the same key' for member rows (3 distinct user_ids repeated). This is because the team document contains duplicate member entries (same user_id appearing in 'active' and 'removed' status, or duplicates from previous test runs). Recommend de-duplicating by user_id when rendering, or using a composite key like `${user_id}-${status}`.",
+        "selector": "[data-testid^=\"member-row-\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration14_views_team.py",
+    "/app/test_reports/pytest/iteration14.xml"
+  ],
+  "action_items": [
+    "Fix Views dropdown 'Save current view' UX: use onSelect with e.preventDefault() so the dropdown stays open and the inline input is reachable in one click instead of two.",
+    "Fix React duplicate-key warnings on TeamPage by either de-duplicating members by user_id or using a composite key (user_id + status). Long-term: clean up the team document so a user_id only appears once."
+  ],
+  "critical_code_review_comments": [
+    "view_routes.py: No ownership/permission check on DELETE /views/{view_id} – any authenticated user can delete any view. Consider scoping by board permission or created_by.",
+    "view_routes.py: GET /views/board/{board_id} has no board access check – any authenticated user can list views for any board id.",
+    "team_routes.py invite endpoint comment now says 'any authenticated user can invite' – business intent should be confirmed (no rate-limit, no spam protection).",
+    "team_routes.py remove_team_member: any team member can remove any other member including admins. Consider preventing non-admins from removing admins."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration14_views_team.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "90%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! (admin), user2@acuity.com / TestPass123!",
+  "seed_data_creation": "Created and removed several TEST_-prefixed invited members; created and deleted board views via API. One UI-saved view 'TEST_View_950854' may persist on board 80443bd5-2839-4909-955b-e13157def5eb.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/test_iteration14_views_team.py covers invite (no membership required), remove member (any member), and views CRUD. Re-run with: pytest /app/backend/tests/test_iteration14_views_team.py -v. Board URL pattern is /boards/{id} (NOT /board/{id}). Saved-view input requires reopening dropdown after clicking 'Save current view' due to Radix behavior – note this when scripting Playwright."
+}

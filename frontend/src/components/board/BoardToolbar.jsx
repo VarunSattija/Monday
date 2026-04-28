@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, User, Filter, ArrowUpDown, EyeOff, LayoutGrid, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, User, Filter, ArrowUpDown, EyeOff, LayoutGrid, X, Bookmark, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -8,15 +8,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
+import api from '../../config/api';
+import { toast } from '../../hooks/use-toast';
 
 const BoardToolbar = ({
   columns,
+  boardId,
   onSearch,
   onFilterColumn,
   onSort,
   onHideColumns,
   onGroupBy,
+  onApplyView,
   hiddenColumns,
   activeFilter,
   activeSort,
@@ -24,6 +29,51 @@ const BoardToolbar = ({
 }) => {
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [views, setViews] = useState([]);
+  const [savingView, setSavingView] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
+
+  useEffect(() => {
+    if (boardId) fetchViews();
+  }, [boardId]);
+
+  const fetchViews = async () => {
+    try {
+      const res = await api.get(`/views/board/${boardId}`);
+      setViews(res.data);
+    } catch { /* silent */ }
+  };
+
+  const saveCurrentView = async () => {
+    if (!newViewName.trim()) return;
+    try {
+      await api.post('/views', {
+        board_id: boardId,
+        name: newViewName.trim(),
+        filters: activeFilter || {},
+        sort: activeSort || {},
+        group_by: activeGroupBy || '',
+        hidden_columns: hiddenColumns ? Array.from(hiddenColumns) : [],
+      });
+      toast({ title: 'Saved!', description: `View "${newViewName}" saved` });
+      setNewViewName('');
+      setSavingView(false);
+      fetchViews();
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+  };
+
+  const applyView = (view) => {
+    onApplyView?.(view);
+    toast({ title: `View: ${view.name}`, description: 'Applied' });
+  };
+
+  const deleteView = async (e, viewId) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/views/${viewId}`);
+      setViews(views.filter(v => v.id !== viewId));
+    } catch { /* silent */ }
+  };
 
   const dataCols = columns?.slice(1) || [];
 
@@ -142,6 +192,42 @@ const BoardToolbar = ({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Saved Views */}
+      <div className="ml-auto flex items-center gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-xs gap-1.5 h-7 text-gray-600" data-testid="toolbar-views-btn">
+              <Bookmark className="h-3.5 w-3.5" /> Views {views.length > 0 ? `(${views.length})` : ''}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {views.length > 0 && (
+              <>
+                {views.map(v => (
+                  <DropdownMenuItem key={v.id} onClick={() => applyView(v)} className="flex justify-between" data-testid={`view-${v.id}`}>
+                    <span>{v.name}</span>
+                    <button onClick={(e) => deleteView(e, v.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {savingView ? (
+              <div className="px-2 py-1.5 flex gap-1">
+                <Input value={newViewName} onChange={(e) => setNewViewName(e.target.value)} placeholder="View name..."
+                  className="h-7 text-xs" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); if (e.key === 'Escape') setSavingView(false); }}
+                  data-testid="view-name-input" />
+                <Button size="sm" className="h-7 px-2 text-xs bg-orange-500" onClick={saveCurrentView}>Save</Button>
+              </div>
+            ) : (
+              <DropdownMenuItem onClick={() => setSavingView(true)} data-testid="save-view-btn">
+                <Plus className="h-3.5 w-3.5 mr-2" /> Save current view
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };

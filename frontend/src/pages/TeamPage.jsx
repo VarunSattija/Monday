@@ -290,15 +290,14 @@ const TeamPage = () => {
                             <SelectItem value="member">Member</SelectItem>
                           </SelectContent>
                         </Select>
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveMember(member.user_id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.user_id)}
+                          data-testid={`remove-member-${member.user_id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
                       </>
                     )}
                   </div>

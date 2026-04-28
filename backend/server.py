@@ -13,6 +13,7 @@ from routes import activity_routes, permission_routes, ai_agent_routes, team_rou
 from routes import folder_routes, import_routes, export_routes
 from routes import ws_routes
 from routes import notification_routes
+from routes import view_routes
 
 
 ROOT_DIR = Path(__file__).parent
@@ -51,6 +52,7 @@ api_router.include_router(folder_routes.router)
 api_router.include_router(import_routes.router)
 api_router.include_router(export_routes.router)
 api_router.include_router(notification_routes.router)
+api_router.include_router(view_routes.router)
 
 # WebSocket routes (mounted at /api/ws/... via api_router)
 api_router.include_router(ws_routes.router)
