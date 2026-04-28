@@ -69,3 +69,20 @@ async def delete_dashboard(
     
     await db.dashboards.delete_one({"id": dashboard_id})
     return {"message": "Dashboard deleted successfully"}
+
+
+@router.delete("/{dashboard_id}/widgets/{widget_id}")
+async def delete_widget(
+    dashboard_id: str,
+    widget_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    dashboard = await db.dashboards.find_one({"id": dashboard_id})
+    if not dashboard:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+
+    await db.dashboards.update_one(
+        {"id": dashboard_id},
+        {"$pull": {"widgets": {"id": widget_id}}}
+    )
+    return {"message": "Widget deleted successfully"}

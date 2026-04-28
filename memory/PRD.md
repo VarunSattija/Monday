@@ -7,39 +7,52 @@ Build a replica of monday.com with the branding (logo and theme) of Acuity Profe
 - Frontend: React, TailwindCSS, Shadcn UI, Recharts, Axios, WebSocket
 - Backend: FastAPI, MongoDB, JWT auth, openpyxl, httpx
 
-## Completed Features (Phases 1-9)
+## All Completed Features (Phases 1-10)
 
-### Core: Auth, Workspaces, Folders, Boards, Groups, Items, Comments with @mentions
-### Columns: text, status, person, date, numbers (£/$/ €/%), priority, tags, checkbox, link, formula
-### Import/Export: Excel import (group detection, append), Excel export (hyperlinks)
-### Charts: Multi-chart (bar/pie/line) with DB persistence
-### Table UX: Column headers per group, checkboxes, insert rows, bulk actions, column resize/reorder
-### Toolbar: Search, Person, Filter, Sort, Hide, Group by
-### Numbers: Currency, Formula (SUM/AVG), Group summary rows
-### Notifications: Bell icon + panel (All/Mentioned/Assigned), @mention detection
-### Email: Resend/SendGrid ready (MOCKED - no key)
-### Sharing: Board invite, Team invite, join link
-### Real-time: WebSocket collaboration
-### Favourites: Star boards, sidebar section
-### Activity Log: Full CRUD logging (create, delete, rename, update, bulk move, automation)
+### Core
+- JWT Auth, auto-team, Workspaces, Folders, Boards, Groups, Items, Comments with @mentions
+- Column types: text, status, person, date, numbers (£/$/ €/%), priority, tags, checkbox, link, formula
+- Board sharing, context menu, shareable join link, favourites
 
-### Phase 9 — Board Invite + Automations + Activity Log (Apr 28, 2026)
-- **Board Invite Dialog Redesign** — Shows real board members from API with avatar, name, email, owner crown + badge, member badge + X remove button. Email invite with notification.
-- **Status-Change Automation** — "When [Status Column] changes to [Value] → Move item to [Group]". Full UI with board picker, status column dropdown, value picker (from column options), target group selector. Backend automation engine runs on every item update and auto-moves items.
-- **Complete Activity Log** — Now logs: item create, item delete, column value changes, name changes, bulk moves, automation-triggered moves (logged as user "Automation"). Essential for compliance.
-- **Automation Engine** — Backend `automation_engine.py` with `run_automations_for_item()` called from `update_item`. Supports `move_to_group`, `change_status`, `send_notification` actions.
+### Import/Export
+- Excel import (group detection, append mode), Excel export (hyperlinks)
+
+### Table UX
+- Column headers per group, checkboxes, insert between rows, bulk actions
+- Column resize (drag), reorder (drag-and-drop), monday.com toolbar (Search/Person/Filter/Sort/Hide/Group by)
+
+### Data
+- Numbers with £ currency, Formula columns (SUM/AVG), Group summary rows with sum totals
+- Multi-chart views (bar/pie/line) with DB persistence
+
+### Collaboration
+- Real-time WebSocket, @mentions in comments, in-app notifications (bell icon + panel)
+- Email infra (Resend/SendGrid ready, MOCKED)
+- Activity Log: full CRUD logging for compliance
+
+### Automations
+- Status-change → move-to-group automation with full UI builder and execution engine
+- Board invite dialog with real members list, owner/member badges, remove button
+
+### Phase 10 — Permissions, Dashboards, Badge Removal (Apr 28, 2026)
+- **Removed "Made with Emergent" badge** — Hidden from UI
+- **Column-Level Permissions** — Owner can set columns as "Owner only edit" or "Hidden". Enforced in frontend (read-only/hidden rendering for non-owners) and persisted via settings.permissions in backend.
+- **Dashboard Widgets**:
+  - Numbers widget (count items, sum/average of number columns with £)
+  - Chart widget (bar/pie/line from any column)
+  - Battery widget (circular progress % for status completion)
+  - Widget CRUD (add via dialog, delete with persistence)
+  - Quick stats cards for each board (item count + groups)
 
 ## Key Endpoints
-- POST /api/automations (with trigger_config + action_config)
-- Automation engine runs inline on PUT /api/items/{id}
-- All activity types logged to GET /api/activity/board/{id}
+- DELETE /api/dashboards/{id}/widgets/{widget_id}
+- PUT /api/boards/{id}/columns/{col_id} (now handles settings.permissions merge)
+- All previous endpoints intact
 
 ## Email: **MOCKED** — Add RESEND_API_KEY or SENDGRID_API_KEY to backend/.env
 
-## P1 - Next
-- File column uploads, Configure email API key
+## Next Tasks
+- P1: File column uploads, configure email API key
+- P2: AI Agent, more automation triggers
 
-## P2 - Future
-- AI Agent, Column-level permissions, Dashboard widgets
-
-## Testing: Iterations 1-12 (latest: 8/8 backend + 100% frontend)
+## Testing: Iterations 1-13 (latest: 10/10 backend + ~90% frontend)

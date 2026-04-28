@@ -196,12 +196,11 @@ const DashboardsPage = () => {
   const deleteWidget = async (widgetId) => {
     const dashId = await getDashboardId();
     if (!dashId) return;
-    setWidgets(widgets.filter(w => w.id !== widgetId));
-    // Persist by re-saving the dashboard
     try {
-      const remaining = widgets.filter(w => w.id !== widgetId);
-      await api.put(`/boards/${dashId}`, {}); // Simplified — we just update local state
-    } catch { /* skip */ }
+      await api.delete(`/dashboards/${dashId}/widgets/${widgetId}`);
+      setWidgets(widgets.filter(w => w.id !== widgetId));
+      toast({ title: 'Widget removed' });
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
   const resetForm = () => { setWType('numbers'); setWTitle(''); setWBoardId(''); setWColumnId(''); setWMetric('count'); setWChartType('bar'); setWTargetValue(''); };
