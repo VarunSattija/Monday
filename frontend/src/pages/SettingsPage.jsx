@@ -266,7 +266,7 @@ const SettingsPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
-                    {teamMembers.slice(0, 5).map((member) => (
+                    {teamMembers.map((member) => (
                       <div key={member.user_id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar>
@@ -292,8 +292,10 @@ const SettingsPage = () => {
                               <SelectItem value="member">Member</SelectItem>
                             </SelectContent>
                           </Select>
-                          {member.role === 'admin' && (
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-700">Admin</Badge>
+                          {member.user_id !== user?.id && (
+                            <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(member)} className="text-red-500 hover:text-red-700 hover:bg-red-50" data-testid={`perm-remove-${member.user_id}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </div>
