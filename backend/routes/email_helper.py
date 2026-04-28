@@ -1,45 +1,98 @@
-"""Email sending helper. Ready for Resend/SendGrid integration.
-When no API key is configured, emails are logged but not sent."""
+"""Email sending via Microsoft Graph API (M365).
+Requires: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
+Sender: Varun.sattija@acuityprofessional.com
+"""
 import os
 import logging
+import msal
+import httpx
 
 logger = logging.getLogger(__name__)
 
+AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
+AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
+AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "Varun.sattija@acuityprofessional.com")
+APP_NAME = "Acuity Professional"
+
+# Fallback keys (Resend/SendGrid) if Graph not configured
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
-FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@acuity-professional.com")
-APP_NAME = "Acuity Professional"
+
+
+def _get_graph_token():
+    """Get access token via client credentials flow."""
+    if not AZURE_TENANT_ID or not AZURE_CLIENT_ID or not AZURE_CLIENT_SECRET:
+        return None
+
+    app = msal.ConfidentialClientApplication(
+        AZURE_CLIENT_ID,
+        authority=f"https://login.microsoftonline.com/{AZURE_TENANT_ID}",
+        client_credential=AZURE_CLIENT_SECRET,
+    )
+    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+    if "access_token" in result:
+        return result["access_token"]
+    logger.error(f"Failed to get Graph token: {result.get('error_description', 'Unknown error')}")
+    return None
 
 
 async def send_email(to_email: str, subject: str, html_body: str):
-    """Send an email. Returns True if sent, False if skipped (no key configured)."""
+    """Send an email. Tries Microsoft Graph first, then Resend/SendGrid."""
+
+    # Try Microsoft Graph API
+    token = _get_graph_token()
+    if token:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"https://graph.microsoft.com/v1.0/users/{SENDER_EMAIL}/sendMail",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "message": {
+                            "subject": subject,
+                            "body": {"contentType": "HTML", "content": html_body},
+                            "toRecipients": [{"emailAddress": {"address": to_email}}],
+                        },
+                        "saveToSentItems": "true",
+                    },
+                )
+                if resp.status_code == 202:
+                    logger.info(f"Email sent via Graph API to {to_email}: {subject}")
+                    return True
+                logger.warning(f"Graph API send failed: {resp.status_code} {resp.text}")
+        except Exception as e:
+            logger.error(f"Graph API send error: {e}")
+
+    # Fallback: Resend
     if RESEND_API_KEY:
         try:
-            import httpx
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-                    json={"from": f"{APP_NAME} <{FROM_EMAIL}>", "to": [to_email], "subject": subject, "html": html_body},
+                    json={"from": f"{APP_NAME} <{SENDER_EMAIL}>", "to": [to_email], "subject": subject, "html": html_body},
                 )
                 if resp.status_code in (200, 201):
-                    logger.info(f"Email sent to {to_email}: {subject}")
+                    logger.info(f"Email sent via Resend to {to_email}: {subject}")
                     return True
-                logger.warning(f"Email send failed: {resp.status_code} {resp.text}")
+                logger.warning(f"Resend failed: {resp.status_code} {resp.text}")
         except Exception as e:
-            logger.error(f"Email send error: {e}")
-        return False
+            logger.error(f"Resend error: {e}")
 
+    # Fallback: SendGrid
     if SENDGRID_API_KEY:
         try:
-            import httpx
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     "https://api.sendgrid.com/v3/mail/send",
                     headers={"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"},
                     json={
                         "personalizations": [{"to": [{"email": to_email}]}],
-                        "from": {"email": FROM_EMAIL, "name": APP_NAME},
+                        "from": {"email": SENDER_EMAIL, "name": APP_NAME},
                         "subject": subject,
                         "content": [{"type": "text/html", "value": html_body}],
                     },
@@ -47,12 +100,11 @@ async def send_email(to_email: str, subject: str, html_body: str):
                 if resp.status_code in (200, 201, 202):
                     logger.info(f"Email sent via SendGrid to {to_email}: {subject}")
                     return True
-                logger.warning(f"SendGrid send failed: {resp.status_code} {resp.text}")
+                logger.warning(f"SendGrid failed: {resp.status_code} {resp.text}")
         except Exception as e:
-            logger.error(f"SendGrid send error: {e}")
-        return False
+            logger.error(f"SendGrid error: {e}")
 
-    logger.info(f"[EMAIL NOT SENT - No API key] To: {to_email}, Subject: {subject}")
+    logger.info(f"[EMAIL NOT SENT - No provider configured] To: {to_email}, Subject: {subject}")
     return False
 
 
