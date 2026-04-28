@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal, Star } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal, Star, User, Settings, LogOut } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -313,10 +313,34 @@ const Sidebar = ({ onOpenImport }) => {
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56">
-            <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
+          <DropdownMenuContent className="w-64 p-2" align="start" side="top">
+            <div className="flex items-center gap-2 px-2 py-2 mb-1">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold">{user?.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-semibold">{user?.name}</p>
+                <p className="text-xs text-gray-400">{user?.email}</p>
+              </div>
+            </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-my-profile">
+              <User className="h-4 w-4 mr-2" /> My profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-administration">
+              <Settings className="h-4 w-4 mr-2" /> Administration
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(currentWorkspace ? `/workspaces/${currentWorkspace.id}/team` : '/settings')} data-testid="menu-teams">
+              <Users className="h-4 w-4 mr-2" /> Teams
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate(currentWorkspace ? `/workspaces/${currentWorkspace.id}/import` : '/settings')} data-testid="menu-import">
+              <Upload className="h-4 w-4 mr-2" /> Import data
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600" data-testid="menu-logout">
+              <LogOut className="h-4 w-4 mr-2" /> Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

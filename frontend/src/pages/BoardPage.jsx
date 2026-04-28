@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Calendar, BarChart3, Settings, History, Share2, Pencil, Check, Download } from 'lucide-react';
+import { Plus, Table as TableIcon, Calendar, BarChart3, History, Share2, Pencil, Check, Download } from 'lucide-react';
 import TableView from '../components/board/TableView';
 import ChartView from '../components/board/ChartView';
 import TimelineView from '../components/board/TimelineView';
@@ -224,14 +224,6 @@ const BoardPage = () => {
             Add Group
           </Button>
           <BoardContextMenu board={board} onUpdate={fetchBoardData} />
-          <Button
-            size="sm"
-            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-            onClick={() => navigate(`/boards/${boardId}/settings`)}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
         </div>
       }
     >

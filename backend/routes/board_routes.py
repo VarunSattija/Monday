@@ -402,25 +402,27 @@ async def invite_to_board(
     inviter_name = current_user.get("name", "Someone")
     board_name = board.get("name", "a board")
 
-    # Find user by email
+    # Find user by email - MUST be a registered user on the platform
     invited_user = await db.users.find_one({"email": email})
-    if invited_user:
-        # Add to board member_ids directly
-        if invited_user["id"] not in board.get("member_ids", []):
-            await db.boards.update_one(
-                {"id": board_id},
-                {"$push": {"member_ids": invited_user["id"]}}
-            )
-        # Create in-app notification for the invited user
-        await create_notification(
-            user_id=invited_user["id"],
-            type="board_invite",
-            title="Board shared with you",
-            message=f'{inviter_name} shared "{board_name}" with you',
-            board_id=board_id,
-            actor_id=current_user["id"],
-            actor_name=inviter_name,
+    if not invited_user:
+        raise HTTPException(status_code=400, detail="This email is not registered on the platform. The person must sign up first.")
+    
+    # Add to board member_ids directly
+    if invited_user["id"] not in board.get("member_ids", []):
+        await db.boards.update_one(
+            {"id": board_id},
+            {"$push": {"member_ids": invited_user["id"]}}
         )
+    # Create in-app notification for the invited user
+    await create_notification(
+        user_id=invited_user["id"],
+        type="board_invite",
+        title="Board shared with you",
+        message=f'{inviter_name} shared "{board_name}" with you',
+        board_id=board_id,
+        actor_id=current_user["id"],
+        actor_name=inviter_name,
+    )
     
     # Send email notification
     app_url = os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
@@ -435,12 +437,12 @@ async def invite_to_board(
         "role": role,
         "invited_by": current_user["id"],
         "invited_at": datetime.utcnow(),
-        "status": "accepted" if invited_user else "pending"
+        "status": "accepted"
     }
     await db.board_invitations.insert_one(invitation)
     invitation.pop("_id", None)
     
-    return {"message": "Invitation sent successfully", "invitation": invitation}
+    return {"message": f"Board shared with {invited_user.get('name', email)} successfully", "invitation": invitation}
 
 
 @router.get("/shared/me")
