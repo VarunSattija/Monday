@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Plus, LayoutGrid, BarChart3, UserPlus, X, Mail, Upload } from 'lucide-react';
+import { Plus, LayoutGrid, BarChart3, UserPlus, X, Mail, Upload, Settings } from 'lucide-react';
 import ImportDialog from './ImportDialog';
 import {
   Select,
@@ -76,6 +76,14 @@ const WorkspacesHome = () => {
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Invite People
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/settings')}
+            data-testid="home-settings-btn"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
           </Button>
           <Button
             className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"

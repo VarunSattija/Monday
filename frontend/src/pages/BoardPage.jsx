@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Calendar, BarChart3, History, Share2, Pencil, Check, Download } from 'lucide-react';
+import { Plus, Table as TableIcon, Calendar, BarChart3, History, Pencil, Check, Download } from 'lucide-react';
 import TableView from '../components/board/TableView';
 import ChartView from '../components/board/ChartView';
 import TimelineView from '../components/board/TimelineView';
@@ -198,22 +198,6 @@ const BoardPage = () => {
             Export
           </Button>
           <InviteToBoardDialog boardId={boardId} onInvite={fetchBoardData} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                const res = await api.post(`/boards/${boardId}/share`);
-                toast({ title: 'Shared!', description: res.data.message });
-              } catch (error) {
-                toast({ title: 'Error', description: 'Failed to share board', variant: 'destructive' });
-              }
-            }}
-            data-testid="share-board-btn"
-          >
-            <Share2 className="h-4 w-4 mr-2" />
-            Share with Team
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowActivityLog(true)}>
             <History className="h-4 w-4 mr-2" />
             Activity
