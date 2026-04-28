@@ -24,11 +24,14 @@ import api from '../../config/api';
 import { toast } from '../../hooks/use-toast';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useBoardSocket } from '../../hooks/useBoardSocket';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ITEMS_PER_PAGE = 50;
 
 const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem, onRefresh }) => {
   const { boards } = useWorkspace();
+  const { user } = useAuth();
+  const isOwner = board?.owner_id === user?.id;
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [collapsedColumns, setCollapsedColumns] = useState(new Set());
   const [selectedItem, setSelectedItem] = useState(null);
@@ -291,10 +294,20 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
 
   const getColumnComponent = (column, item) => {
     const value = item.column_values[column.id];
-    const onChange = (v) => {
+    const perms = column.settings?.permissions;
+    const editRestricted = perms?.edit === 'owner_only' && !isOwner;
+
+    const onChange = editRestricted ? undefined : (v) => {
       onUpdateItem(item.id, { column_values: { ...item.column_values, [column.id]: v } });
       wsSend({ type: 'refresh' });
     };
+
+    if (editRestricted) {
+      // Read-only: show value as plain text
+      const display = value ? (typeof value === 'object' ? (value.label || JSON.stringify(value)) : String(value)) : '-';
+      return <span className="text-sm text-gray-500">{display}</span>;
+    }
+
     switch (column.type) {
       case 'status': case 'priority':
         return <StatusCell value={value} options={column.options} onChange={onChange} />;
@@ -313,7 +326,12 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
     }
   };
 
-  const visibleColumns = board.columns?.slice(1).filter(col => !collapsedColumns.has(col.id)) || [];
+  const visibleColumns = board.columns?.slice(1).filter(col => {
+    if (collapsedColumns.has(col.id)) return false;
+    // Hide columns where view permission is 'hidden' and user is not owner
+    if (col.settings?.permissions?.view === 'hidden' && !isOwner) return false;
+    return true;
+  }) || [];
   const otherBoards = (boards || []).filter(b => b.id !== board.id);
 
   const customGroups = useMemo(() => {

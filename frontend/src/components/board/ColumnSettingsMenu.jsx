@@ -38,8 +38,8 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
   const [showChangeType, setShowChangeType] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [labels, setLabels] = useState(column.options || []);
-  const [canEdit, setCanEdit] = useState(true);
-  const [canView, setCanView] = useState(true);
+  const [canEdit, setCanEdit] = useState(column.settings?.permissions?.edit !== 'owner_only');
+  const [canView, setCanView] = useState(column.settings?.permissions?.view !== 'hidden');
   const [renameValue, setRenameValue] = useState(column.title);
   const [newType, setNewType] = useState(column.type);
   const [filterValue, setFilterValue] = useState('');
@@ -85,9 +85,21 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
     }
   };
 
-  const handleSavePermissions = () => {
-    toast({ title: 'Success', description: 'Permissions updated successfully!' });
-    setShowPermissions(false);
+  const handleSavePermissions = async () => {
+    try {
+      const permissions = {
+        edit: canEdit ? 'everyone' : 'owner_only',
+        view: canView ? 'everyone' : 'hidden',
+      };
+      await api.put(`/boards/${boardId}/columns/${column.id}`, {
+        settings: { ...(column.settings || {}), permissions },
+      });
+      toast({ title: 'Saved', description: 'Column permissions updated' });
+      setShowPermissions(false);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save permissions', variant: 'destructive' });
+    }
   };
 
   const handleRename = async () => {

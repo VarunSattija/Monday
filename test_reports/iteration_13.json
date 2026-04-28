@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 13: Validated (1) Emergent badge hidden + title 'Acuity Professional', (2) column-level permissions PUT persistence and merge behaviour, (3) Dashboards page with Numbers/Chart/Battery widget creation. 10/10 backend pytest tests passed. Frontend: Dashboards page loads at /workspaces/{id}/dashboards, Add Widget dialog works for numbers + chart types (battery/numbers/chart all created via backend parametrized test), widgets render from recharts. Column permissions dialog opens and Save fires toast.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/dashboards/{id}/widgets/{wid}", "issue": "No widget-delete endpoint exists. DashboardsPage.deleteWidget() currently calls PUT /api/boards/{dashId} (wrong resource) causing a 404 in console and widget deletes are NOT persisted – only local state updates."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "DashboardsPage", "issue": "deleteWidget calls api.put('/boards/${dashId}', {}) — hits board resource instead of a dashboard widget endpoint; generates 404 and deleted widgets re-appear on refresh.", "selector": "[data-testid^='delete-widget-']", "priority": "MEDIUM"},
+      {"component": "ColumnSettingsMenu permissions dialog", "issue": "Switches and 'Save Permissions' button have no data-testid, making UI regression testing brittle. Suggested: data-testid='perm-view-switch' / 'perm-edit-switch' / 'save-permissions-btn'.", "selector": "Dialog > [role='switch']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Clicking 'Dashboards' sidebar without a workspace selected", "issue": "Navigates to /workspaces (workspace picker) rather than hinting user to pick a workspace. Direct URL /workspaces/{id}/dashboards works.", "affected_selectors": ["text=Dashboards"]}
+    ],
+    "design_issues": [
+      {"screen": "Dashboards", "issues": ["Quick stats cards render for each board (verified 'Pipeline  203  items across 4 groups'). Numbers/Chart widgets render correctly with orange/blue palette. No contrast issues observed."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration13_permissions_widgets.py",
+    "/app/test_reports/pytest/iteration13.xml"
+  ],
+  "action_items": [
+    "Add DELETE /api/dashboards/{dashboard_id}/widgets/{widget_id} endpoint on backend and wire DashboardsPage.deleteWidget() to use it so widget deletions persist.",
+    "Add data-testid attributes to the column permissions dialog (switches + Save button) for regression automation.",
+    "Consider adding a read-only visual indicator (lock icon) next to cells whose column has edit='owner_only' for non-owner users in TableView.",
+    "Cleanup residual TEST_UI_* widgets left from earlier iterations on the shared Pipeline dashboard."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/board_routes.py update_column does NOT verify board membership/ownership before mutating columns — any authenticated user can change permissions for any board. Add owner/membership check.",
+    "backend/routes/dashboard_routes.py has no board-membership/workspace-membership auth check on create/list/add_widget/delete — any authenticated user can CRUD dashboards for any workspace_id. High-priority security gap.",
+    "DashboardsPage.deleteWidget() writes via api.put('/boards/${dashId}', {}) which is nonsense — creates 404s and gives the illusion of deletion. Either add a proper widget-delete API or update dashboard.widgets array in place.",
+    "Frontend: emergent-main.js is a 3rd-party script that may re-inject the badge at runtime. Verified current state: element has style=display:none !important inline, and runtime computed style is {display:'none'} so badge stays hidden. OK.",
+    "Pydantic BoardColumn.settings is Dict[str, Any] – no schema validation on permissions sub-doc. A stricter sub-model (edit: Literal['everyone','owner_only'], view: Literal['everyone','hidden']) would catch invalid values early.",
+    "DashboardsPage imports recharts components; Line/Bar/Pie chart data is derived by counting column values — for non-status columns with many unique values this will produce very wide charts. Consider top-N grouping."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration13_permissions_widgets.py (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "~90%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! (owner); user2@acuity.com / TestPass123! (member). Pipeline board: 80443bd5-2839-4909-955b-e13157def5eb, Workspace: ac2d85dd-bbbd-4189-a365-9ab682d97860.",
+  "seed_data_creation": "Backend test created TEST_dash_i13 dashboard + 3 widgets (numbers/chart/battery) and cleaned up via DELETE /api/dashboards/{id}. UI test created TEST_UI_Numbers and TEST_UI_Chart widgets on the shared Main Dashboard — these remained because the frontend does not have a working delete-widget endpoint (see bug).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Dashboards route = /workspaces/{workspaceId}/dashboards. Sidebar 'Dashboards' click without a selected workspace routes to /workspaces (empty page). Widget create testids: add-widget-btn, widget-title, widget-type-{numbers|chart|battery}, widget-board, widget-create-btn, widget-{id}, delete-widget-{id}. Column permissions dialog: no data-testids on switches/save — use text selectors ('Column permissions', 'Save Permissions'). Backend tests require REACT_APP_BACKEND_URL env var passed to pytest (not inherited from frontend/.env).",
+  "rca_of_the_issue": "N/A – no blocking issues. The PUT /api/boards/{id}/columns/{col_id} endpoint correctly merges body.settings into the existing settings dict (board_routes.py L220-223), so permissions persist. Dashboard widgets are stored in dashboards.widgets array and POST /api/dashboards/{id}/widgets $push-es a new DashboardWidget successfully. Widget deletion path is the one gap — fix is to add DELETE /api/dashboards/{dashboard_id}/widgets/{widget_id} using $pull."
+}

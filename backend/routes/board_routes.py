@@ -217,6 +217,10 @@ async def update_column(
                     col["options"] = []
             if body and "options" in body:
                 col["options"] = body["options"]
+            if body and "settings" in body:
+                existing_settings = col.get("settings", {})
+                existing_settings.update(body["settings"])
+                col["settings"] = existing_settings
             updated = True
             break
     
