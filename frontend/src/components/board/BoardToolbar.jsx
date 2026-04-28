@@ -214,14 +214,14 @@ const BoardToolbar = ({
               </>
             )}
             {savingView ? (
-              <div className="px-2 py-1.5 flex gap-1">
+              <div className="px-2 py-1.5 flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <Input value={newViewName} onChange={(e) => setNewViewName(e.target.value)} placeholder="View name..."
                   className="h-7 text-xs" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); if (e.key === 'Escape') setSavingView(false); }}
                   data-testid="view-name-input" />
                 <Button size="sm" className="h-7 px-2 text-xs bg-orange-500" onClick={saveCurrentView}>Save</Button>
               </div>
             ) : (
-              <DropdownMenuItem onClick={() => setSavingView(true)} data-testid="save-view-btn">
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSavingView(true); }} data-testid="save-view-btn">
                 <Plus className="h-3.5 w-3.5 mr-2" /> Save current view
               </DropdownMenuItem>
             )}

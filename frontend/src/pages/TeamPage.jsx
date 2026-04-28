@@ -106,7 +106,14 @@ const TeamPage = () => {
   const activeMembers = team?.members?.filter((m) => m.status === 'active') || [];
   const invitedMembers = team?.members?.filter((m) => m.status === 'invited') || [];
   const removedMembers = team?.members?.filter((m) => m.status === 'removed') || [];
-  const totalMembers = activeMembers.length + invitedMembers.length;
+  // Deduplicate by user_id (keep first occurrence)
+  const dedup = (arr) => {
+    const seen = new Set();
+    return arr.filter(m => { if (seen.has(m.user_id)) return false; seen.add(m.user_id); return true; });
+  };
+  const uniqueActive = dedup(activeMembers);
+  const uniqueInvited = dedup(invitedMembers);
+  const totalMembers = uniqueActive.length + uniqueInvited.length;
 
   if (loading) {
     return (
@@ -217,11 +224,11 @@ const TeamPage = () => {
                 <div className="text-sm text-gray-600 mt-1">Total Members</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg" data-testid="active-members-card">
-                <div className="text-3xl font-bold text-green-600">{activeMembers.length}</div>
+                <div className="text-3xl font-bold text-green-600">{uniqueActive.length}</div>
                 <div className="text-sm text-gray-600 mt-1">Active</div>
               </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg" data-testid="invited-members-card">
-                <div className="text-3xl font-bold text-blue-600">{invitedMembers.length}</div>
+                <div className="text-3xl font-bold text-blue-600">{uniqueInvited.length}</div>
                 <div className="text-sm text-gray-600 mt-1">Invited</div>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
@@ -235,12 +242,12 @@ const TeamPage = () => {
         {/* Active Members */}
         <Card>
           <CardHeader>
-            <CardTitle data-testid="active-members-title">Active Members ({activeMembers.length})</CardTitle>
+            <CardTitle data-testid="active-members-title">Active Members ({uniqueActive.length})</CardTitle>
             <CardDescription>Members currently part of the team</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {activeMembers.map((member) => (
+              {uniqueActive.map((member) => (
                 <div
                   key={member.user_id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -308,15 +315,15 @@ const TeamPage = () => {
         </Card>
 
         {/* Invited Members */}
-        {invitedMembers.length > 0 && (
+        {uniqueInvited.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle data-testid="invited-members-title">Pending Invitations ({invitedMembers.length})</CardTitle>
+              <CardTitle data-testid="invited-members-title">Pending Invitations ({uniqueInvited.length})</CardTitle>
               <CardDescription>Members who have been invited but haven't joined yet</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {invitedMembers.map((member) => (
+                {uniqueInvited.map((member) => (
                   <div
                     key={member.user_id}
                     className="flex items-center justify-between p-4 border rounded-lg border-dashed hover:bg-gray-50 transition-colors"
