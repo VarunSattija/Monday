@@ -21,6 +21,18 @@ async def create_item(
         created_by=current_user["id"]
     )
     await db.items.insert_one(item.dict())
+
+    # Activity log
+    await log_activity(
+        board_id=item.board_id,
+        user_id=current_user["id"],
+        user_name=current_user.get("name", ""),
+        action="created",
+        item_name=item.name,
+        column_name="",
+        item_id=item.id,
+    )
+
     return item
 
 
@@ -78,6 +90,23 @@ async def bulk_move_items(
         {"id": {"$in": item_ids}},
         {"$set": {"group_id": target_group_id, "updated_at": datetime.utcnow()}}
     )
+    # Log bulk move
+    if result.modified_count > 0:
+        moved_items = await db.items.find({"id": {"$in": item_ids}}).to_list(len(item_ids))
+        board_id = moved_items[0].get("board_id") if moved_items else ""
+        target_group = await db.groups.find_one({"id": target_group_id})
+        group_name = target_group.get("title", "") if target_group else ""
+        if board_id:
+            await log_activity(
+                board_id=board_id,
+                user_id=current_user["id"],
+                user_name=current_user.get("name", ""),
+                action="bulk_moved",
+                item_name=f"{result.modified_count} items",
+                column_name="Group",
+                new_value=group_name,
+                item_id="",
+            )
     return {"message": f"Moved {result.modified_count} items", "moved": result.modified_count}
 
 
@@ -177,6 +206,18 @@ async def update_item(
         {"$set": update_data}
     )
 
+    # Run automations if column_values changed
+    if "column_values" in update_data and item.get("board_id"):
+        from routes.automation_engine import run_automations_for_item
+        await run_automations_for_item(
+            item_id=item_id,
+            board_id=item["board_id"],
+            old_column_values=item.get("column_values", {}),
+            new_column_values=update_data["column_values"],
+            user_id=current_user["id"],
+            user_name=current_user.get("name", ""),
+        )
+
     updated_item = await db.items.find_one({"id": item_id})
     return Item(**updated_item)
 
@@ -192,6 +233,18 @@ async def delete_item(
     
     await db.items.delete_one({"id": item_id})
     await db.updates.delete_many({"item_id": item_id})
+
+    # Activity log
+    if item.get("board_id"):
+        await log_activity(
+            board_id=item["board_id"],
+            user_id=current_user["id"],
+            user_name=current_user.get("name", ""),
+            action="deleted",
+            item_name=item.get("name", ""),
+            column_name="",
+            item_id=item_id,
+        )
     
     return {"message": "Item deleted successfully"}
 

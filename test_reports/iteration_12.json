@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 12: Validated invite dialog real-members, automation create/engine (status_change -> move_to_group), activity logging for create/delete/bulk_move/automation-moved. 8/8 backend pytest tests passed + Playwright UI flow verified for both InviteToBoardDialog and AutomationsPage.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AutomationsPage", "issues": ["Description uses 'tc.value_label || tc.value' but backend only persists `trigger_config.value` (the label string). Works today because frontend stores option.label as the value. If value schemas change (e.g., option.id stored), the description will show an id instead of label; keep in mind for future-proofing."]},
+      {"screen": "InviteToBoardDialog", "issues": ["Owner shows crown + 'owner' badge and no remove action; Member shows 'member' badge + X (verified 2 members, 1 owner, 1 remove button). Looks good. Minor: dialog header 'Subscribe people from your organization' copy could be 'Invite'."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration12_automation_activity.py",
+    "/app/test_reports/pytest/iteration12.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: Normalize automation trigger_config to persist both option id + label so UI description is resilient.",
+    "Optional: Add a confirmation modal (shadcn AlertDialog) for automation delete rather than native window.confirm for consistency."
+  ],
+  "critical_code_review_comments": [
+    "automation_engine.run_automations_for_item compares `str(new_val) == str(target_value)`. OK for string option labels but will silently not fire if value is a dict/object. Consider normalizing (e.g., value.get('label')).",
+    "automation_engine.execute_action for move_to_group logs old_value as old_group_id (raw id) and new_value as group name (title). Inconsistent—either both names or both ids. Minor UX for activity feed.",
+    "item_routes.bulk_move: logs activity with item_name='{n} items' and item_id=''. Acceptable but activity feed filter-by-item won't catch this. Consider storing target_group_id/item_ids array in a meta field.",
+    "item_routes.update_item: old_column_values is read from DB *before* update (good), and new_column_values is the update_data dict which contains ONLY changed keys. If client sends full column_values, old vs new merge is fine; if partial, unchanged columns won't re-trigger automations (correct behavior). Double-check frontend always sends partial.",
+    "board_routes.get_board_members_list mutates board['member_ids'] in place (line 548). Confirmed harmless in current code path but risky pattern; prefer building a new list.",
+    "automation_routes: no board-membership auth check before create/list/toggle/delete. Any logged-in user could create/list automations for any board_id. Security concern - add membership assertion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration12_automation_activity.py (new)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100%"},
+  "test_credentials": "testuser@acuity.com / TestPass123!, user2@acuity.com / TestPass123!",
+  "seed_data_creation": "Created and cleaned up a TEST_auto_* automation and TEST_autoitem_* item during backend tests. Frontend test created 1 automation 'TEST_UIAuto_NFA' (Signed Up -> NFA); UI deletion was attempted at end of run. A residual 'Move NFA to NFA group' automation from prior iterations remains on the Pipeline board (pre-existing seed).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend routes: use /boards/{boardId} (NOT /board/{id}) and /workspaces/{workspaceId}/automations (NOT /automations). Pipeline workspace_id=ac2d85dd-bbbd-4189-a365-9ab682d97860, board_id=80443bd5-2839-4909-955b-e13157def5eb. Auth login token key is 'access_token'. Status column options on Pipeline board: 'Signed Up' and 'Offered'. Groups: Pipeline, Completed, NFA, Enquiry - Working On. Automation create flow testids: create-automation-btn -> auto-name -> auto-board -> auto-trigger -> auto-trigger-col -> auto-trigger-val -> auto-action -> auto-action-group -> auto-create-btn. Invite dialog testids: invite-board-btn, invite-email-input, invite-send-btn, board-member-{id}, remove-member-{id}. Backend tests required REACT_APP_BACKEND_URL env var to be passed (not inherited from frontend/.env by pytest).",
+  "rca_of_the_issue": "N/A. All features working: (1) members/list API returns real data with 2 members. (2) Automation engine fires on PUT /api/items/{id} when column_values change - verified item moved from Pipeline group to NFA group. (3) Activity log captures 'created'/'deleted' by item_id and 'bulk_moved' as separate entries; automation moves logged with user_name='Automation'."
+}

@@ -46,6 +46,7 @@ class AutomationAction(str, Enum):
     CHANGE_STATUS = "change_status"
     ASSIGN_PERSON = "assign_person"
     CREATE_ITEM = "create_item"
+    MOVE_TO_GROUP = "move_to_group"
 
 
 # User Models
