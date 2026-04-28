@@ -227,7 +227,15 @@ async def invite_member_by_email(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Any authenticated user can invite others to the team
+    # Only admin and member roles can invite, not viewers
+    current_member = None
+    for member in team.get("members", []):
+        if member["user_id"] == current_user["id"]:
+            current_member = member
+            break
+    
+    if current_member and current_member.get("role") == "viewer":
+        raise HTTPException(status_code=403, detail="Viewers cannot invite team members. Only Admin and Member roles can invite.")
     
     # Check if email is already in team
     active_member = None

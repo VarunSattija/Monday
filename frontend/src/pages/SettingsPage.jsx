@@ -146,8 +146,9 @@ const SettingsPage = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -287,9 +288,10 @@ const SettingsPage = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">
-                                <div className="flex items-center gap-2"><Crown className="h-4 w-4" />Owner</div>
+                                <div className="flex items-center gap-2"><Crown className="h-4 w-4" />Admin</div>
                               </SelectItem>
                               <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
                             </SelectContent>
                           </Select>
                           {member.user_id !== user?.id && (

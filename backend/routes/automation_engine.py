@@ -74,13 +74,21 @@ async def execute_action(automation: dict, item_id: str, board_id: str, action: 
 
     elif action == "send_notification":
         from routes.notification_routes import create_notification
+        from routes.email_helper import send_email
         item = await db.items.find_one({"id": item_id})
         board = await db.boards.find_one({"id": board_id})
         item_name = item.get("name", "an item") if item else "an item"
+        board_name = board.get("name", "a board") if board else "a board"
         auto_name = automation.get("name", "Automation")
-        for mid in (board or {}).get("member_ids", []):
+        
+        # If specific recipient(s) are configured, notify them; otherwise notify all members
+        target_user_ids = action_config.get("user_ids", [])
+        if not target_user_ids:
+            target_user_ids = (board or {}).get("member_ids", [])
+        
+        for uid in target_user_ids:
             await create_notification(
-                user_id=mid,
+                user_id=uid,
                 type="automation",
                 title="Automation triggered",
                 message=f'"{auto_name}" triggered on "{item_name}"',
@@ -89,3 +97,21 @@ async def execute_action(automation: dict, item_id: str, board_id: str, action: 
                 actor_id="system",
                 actor_name="Automation",
             )
+            # Also email the target user
+            target_user = await db.users.find_one({"id": uid})
+            if target_user and target_user.get("email"):
+                subject = f'Automation: "{auto_name}" triggered on "{item_name}"'
+                html = f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 24px 32px; border-radius: 12px 12px 0 0;">
+                        <h1 style="color: white; margin: 0; font-size: 24px;">Acuity Professional</h1>
+                    </div>
+                    <div style="background: white; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+                        <h2 style="color: #1f2937; margin-top: 0;">Automation Triggered</h2>
+                        <p style="color: #4b5563; line-height: 1.6;">
+                            The automation <strong>"{auto_name}"</strong> was triggered on item <strong>"{item_name}"</strong> in board <strong>"{board_name}"</strong>.
+                        </p>
+                    </div>
+                </div>
+                """
+                await send_email(target_user["email"], subject, html)

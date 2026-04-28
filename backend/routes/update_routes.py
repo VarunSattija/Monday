@@ -84,6 +84,32 @@ async def create_update(
                         actor_name=user_name,
                     )
 
+            # Email the board owner about the update
+            owner_id = board.get("owner_id")
+            if owner_id and owner_id != current_user["id"]:
+                from routes.email_helper import send_email
+                owner = await db.users.find_one({"id": owner_id})
+                if owner and owner.get("email"):
+                    board_name = board.get("name", "a board")
+                    subject = f'New update on "{board_name}" — {item_name}'
+                    html = f"""
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 24px 32px; border-radius: 12px 12px 0 0;">
+                            <h1 style="color: white; margin: 0; font-size: 24px;">Acuity Professional</h1>
+                        </div>
+                        <div style="background: white; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+                            <h2 style="color: #1f2937; margin-top: 0;">New Update</h2>
+                            <p style="color: #4b5563; line-height: 1.6;">
+                                <strong>{user_name}</strong> posted an update on <strong>"{item_name}"</strong> in board <strong>"{board_name}"</strong>:
+                            </p>
+                            <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0; color: #374151;">
+                                {update_data.content[:500]}
+                            </div>
+                        </div>
+                    </div>
+                    """
+                    await send_email(owner["email"], subject, html)
+
     return update
 
 

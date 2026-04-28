@@ -30,10 +30,12 @@ const AutomationsPage = () => {
   const [triggerColumnId, setTriggerColumnId] = useState('');
   const [triggerValue, setTriggerValue] = useState('');
   const [actionGroupId, setActionGroupId] = useState('');
+  const [actionUserIds, setActionUserIds] = useState([]);
 
   // Board data for config
   const [boardColumns, setBoardColumns] = useState([]);
   const [boardGroups, setBoardGroups] = useState([]);
+  const [boardMembers, setBoardMembers] = useState([]);
   const [columnOptions, setColumnOptions] = useState([]);
 
   useEffect(() => {
@@ -47,9 +49,11 @@ const AutomationsPage = () => {
       const statusCols = (board?.columns || []).filter(c => c.type === 'status' || c.type === 'priority');
       setBoardColumns(statusCols);
       api.get(`/groups/board/${selectedBoard}`).then(r => setBoardGroups(r.data)).catch(() => {});
+      api.get(`/boards/${selectedBoard}/members/list`).then(r => setBoardMembers(r.data)).catch(() => {});
     } else {
       setBoardColumns([]);
       setBoardGroups([]);
+      setBoardMembers([]);
     }
   }, [selectedBoard, boards]);
 
@@ -110,6 +114,14 @@ const AutomationsPage = () => {
       actionConfig.group_name = grp?.title || '';
     }
 
+    if (action === 'send_notification') {
+      actionConfig.user_ids = actionUserIds;
+      actionConfig.user_names = actionUserIds.map(uid => {
+        const m = boardMembers.find(bm => bm.id === uid);
+        return m?.name || '';
+      });
+    }
+
     try {
       const res = await api.post('/automations', {
         board_id: selectedBoard,
@@ -146,7 +158,7 @@ const AutomationsPage = () => {
 
   const resetForm = () => {
     setAutomationName(''); setSelectedBoard(''); setTrigger(''); setAction('');
-    setTriggerColumnId(''); setTriggerValue(''); setActionGroupId('');
+    setTriggerColumnId(''); setTriggerValue(''); setActionGroupId(''); setActionUserIds([]);
   };
 
   const describeAutomation = (auto) => {
@@ -271,6 +283,31 @@ const AutomationsPage = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {action === 'send_notification' && selectedBoard && (
+                  <div className="mt-3">
+                    <Label className="text-xs">Notify team members (select who should receive)</Label>
+                    <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto border rounded-lg p-2">
+                      {boardMembers.map(m => (
+                        <label key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer" data-testid={`notify-member-${m.id}`}>
+                          <input
+                            type="checkbox"
+                            checked={actionUserIds.includes(m.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setActionUserIds([...actionUserIds, m.id]);
+                              else setActionUserIds(actionUserIds.filter(id => id !== m.id));
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">{m.name}</span>
+                          <span className="text-xs text-gray-400 ml-auto">{m.email}</span>
+                        </label>
+                      ))}
+                      {boardMembers.length === 0 && <p className="text-xs text-gray-400 text-center py-2">No members found</p>}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">Leave empty to notify all board members</p>
                   </div>
                 )}
               </div>
