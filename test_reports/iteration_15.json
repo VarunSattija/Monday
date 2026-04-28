@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 15 regression: forgot/reset password + global /settings route + reinvite removed member + activity log dual time display. Backend pytest 8/8 PASS. Frontend verified end-to-end via Playwright: login 'Forgot password?' link present, /forgot-password page works (success state shown), /reset-password/:token route renders with all testids and rejects invalid tokens, /settings loads globally (Settings page with 6 tabs visible), Activity Log shows 'DD MMM YYYY, HH:MM' full time plus 'about X hour ago' relative time on every entry.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration15_auth_reinvite.py",
+    "/app/test_reports/pytest/iteration15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth_routes.py forgot-password: Returns 'If the email exists...' for unknown emails but still 200 — good (prevents enumeration). However the same message is used for the success case, so callers cannot reliably surface 'email not found' — intentional; keep as-is.",
+    "auth_routes.py reset-password: No rate limiting on token submission — brute-force protection should be considered (e.g., track failed attempts per IP/email). Tokens are 36-char UUIDs so entropy is acceptable, but a simple per-IP rate limit would harden this.",
+    "auth_routes.py: 'delete-by-domain' endpoint at line 203 is unauthenticated and destructive — this is dangerous in production. Guard with admin auth or remove before prod.",
+    "team_routes.py invite: Still no auth check for 'must be team member to invite' — iteration 14 review already flagged this; intentional per code comment but worth confirming with product.",
+    "email_helper: Emails are MOCKED because no RESEND_API_KEY/SENDGRID_API_KEY is set. Reset flow works end-to-end (token in DB) but real users will NOT receive emails until an API key is added to backend/.env."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration15_auth_reinvite.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "testuser@acuity.com / TestPass123!, user2@acuity.com / TestPass123!",
+  "seed_data_creation": "Created 1 throwaway TEST_reset_* user (password-reset full cycle) and 1 TEST_reinvite_* member (invite -> remove -> reinvite -> remove). Both left in 'removed' status or as disposable user; no cleanup required for team docs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 15 green. Reset-password full cycle requires reading token from MongoDB password_resets collection because emails are mocked. The /settings route now works globally (not just under /boards/:id/settings). Activity log testid pattern: [data-testid^='activity-'] returns individual entries; filter out 'activity-list' and 'activity-search' non-row testids. To open Activity Log on BoardPage: click 'Activity' button (text selector works)."
+}

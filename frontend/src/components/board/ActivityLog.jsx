@@ -66,8 +66,11 @@ const ActivityLog = ({ open, onClose }) => {
 
   const formatTime = (dateStr) => {
     try {
-      return formatDistanceToNow(new Date(dateStr), { addSuffix: false });
-    } catch { return ''; }
+      const date = new Date(dateStr);
+      const relative = formatDistanceToNow(date, { addSuffix: false });
+      const full = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return { relative, full };
+    } catch { return { relative: '', full: '' }; }
   };
 
   const renderValueBadge = (val) => {
@@ -111,9 +114,9 @@ const ActivityLog = ({ open, onClose }) => {
               {filtered.map((activity) => (
                 <div key={activity.id} className="flex items-center gap-3 px-6 py-3.5 hover:bg-blue-50/40 transition-colors" data-testid={`activity-${activity.id}`}>
                   {/* Time */}
-                  <div className="flex items-center gap-1 text-xs text-gray-400 w-14 flex-shrink-0">
-                    <Clock className="h-3 w-3" />
-                    <span>{formatTime(activity.created_at)}</span>
+                  <div className="flex flex-col text-xs text-gray-400 w-24 flex-shrink-0">
+                    <span className="font-medium">{formatTime(activity.created_at).full}</span>
+                    <span className="flex items-center gap-0.5 text-[10px]"><Clock className="h-2.5 w-2.5" />{formatTime(activity.created_at).relative} ago</span>
                   </div>
 
                   {/* User Avatar */}

@@ -6,6 +6,8 @@ import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { Toaster } from './components/ui/toaster';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import WorkspacesHome from './pages/WorkspacesHome';
 import NewBoard from './pages/NewBoard';
 import BoardPage from './pages/BoardPage';
@@ -47,6 +49,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/join/:teamSlug" element={<JoinTeamPage />} />
               <Route
                 path="/select-company"
@@ -114,6 +118,14 @@ function App() {
               />
               <Route
                 path="/boards/:boardId/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
                 element={
                   <ProtectedRoute>
                     <SettingsPage />

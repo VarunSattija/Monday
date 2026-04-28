@@ -211,3 +211,88 @@ async def delete_users_by_domain(domain: str):
         "message": f"Deleted {result.deleted_count} users with domain @{domain}",
         "count": result.deleted_count
     }
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: dict):
+    import uuid as _uuid
+    import os
+    from routes.email_helper import send_email
+
+    email = body.get("email", "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    user = await db.users.find_one({"email": email})
+    if not user:
+        # Don't reveal if email exists — always return success
+        return {"message": "If the email exists, a reset link has been sent"}
+
+    # Generate reset token
+    token = str(_uuid.uuid4())
+    await db.password_resets.insert_one({
+        "token": token,
+        "user_id": user["id"],
+        "email": email,
+        "created_at": datetime.utcnow(),
+        "used": False,
+    })
+
+    app_url = os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
+    reset_url = f"{app_url}/reset-password/{token}"
+
+    subject = "Reset your Acuity Professional password"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 24px 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Acuity Professional</h1>
+        </div>
+        <div style="background: white; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+            <h2 style="color: #1f2937; margin-top: 0;">Password Reset</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                We received a request to reset your password. Click the button below to set a new password.
+            </p>
+            <a href="{reset_url}" style="display: inline-block; background: #f97316; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 16px 0;">
+                Reset Password
+            </a>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">
+                If you didn't request this, you can safely ignore this email. This link expires in 1 hour.
+            </p>
+        </div>
+    </div>
+    """
+    await send_email(email, subject, html)
+
+    return {"message": "If the email exists, a reset link has been sent"}
+
+
+@router.post("/reset-password")
+async def reset_password(body: dict):
+    token = body.get("token", "").strip()
+    new_password = body.get("new_password", "").strip()
+
+    if not token or not new_password:
+        raise HTTPException(status_code=400, detail="Token and new_password required")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    reset_doc = await db.password_resets.find_one({"token": token, "used": False})
+    if not reset_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    # Check token age (1 hour)
+    from datetime import timedelta
+    if datetime.utcnow() - reset_doc["created_at"] > timedelta(hours=1):
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+
+    # Update password
+    hashed = get_password_hash(new_password)
+    await db.users.update_one(
+        {"id": reset_doc["user_id"]},
+        {"$set": {"hashed_password": hashed}}
+    )
+
+    # Mark token as used
+    await db.password_resets.update_one({"token": token}, {"$set": {"used": True}})
+
+    return {"message": "Password reset successfully"}

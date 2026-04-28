@@ -230,40 +230,49 @@ async def invite_member_by_email(
     # Any authenticated user can invite others to the team
     
     # Check if email is already in team
-    member_exists = any(
-        member.get("email") == invite_data.email
-        for member in team.get("members", [])
-    )
+    active_member = None
+    removed_member = None
+    for member in team.get("members", []):
+        if member.get("email") == invite_data.email:
+            if member.get("status") in ("active", "invited"):
+                active_member = member
+            elif member.get("status") == "removed":
+                removed_member = member
     
-    if member_exists:
+    if active_member:
         raise HTTPException(status_code=400, detail="User already in team")
     
-    # Check if user exists
-    existing_user = await db.users.find_one({"email": invite_data.email})
-    
-    if existing_user:
-        # Add existing user directly
-        new_member = TeamMember(
-            user_id=existing_user["id"],
-            name=existing_user.get("name", "Unknown"),
-            email=invite_data.email,
-            role=invite_data.role,
-            status="active"
+    if removed_member:
+        # Re-invite removed member: reset status to invited
+        await db.teams.update_one(
+            {"id": team_id, "members.user_id": removed_member["user_id"]},
+            {"$set": {"members.$.status": "invited", "members.$.role": invite_data.role}}
         )
     else:
-        # Create an invited placeholder
-        new_member = TeamMember(
-            user_id=str(uuid.uuid4()),
-            name=invite_data.email.split("@")[0],
-            email=invite_data.email,
-            role=invite_data.role,
-            status="invited"
+        # Add new member
+        existing_user = await db.users.find_one({"email": invite_data.email})
+        
+        if existing_user:
+            new_member = TeamMember(
+                user_id=existing_user["id"],
+                name=existing_user.get("name", "Unknown"),
+                email=invite_data.email,
+                role=invite_data.role,
+                status="active"
+            )
+        else:
+            new_member = TeamMember(
+                user_id=str(uuid.uuid4()),
+                name=invite_data.email.split("@")[0],
+                email=invite_data.email,
+                role=invite_data.role,
+                status="invited"
+            )
+        
+        await db.teams.update_one(
+            {"id": team_id},
+            {"$push": {"members": new_member.dict()}}
         )
-    
-    await db.teams.update_one(
-        {"id": team_id},
-        {"$push": {"members": new_member.dict()}}
-    )
     
     # Send email + in-app notification
     from routes.notification_routes import create_notification
@@ -273,9 +282,11 @@ async def invite_member_by_email(
     inviter_name = current_user.get("name", "Someone")
     team_name = team.get("name", "a team")
 
-    if existing_user:
+    # Look up the user to send notification if they exist
+    invite_target = await db.users.find_one({"email": invite_data.email})
+    if invite_target:
         await create_notification(
-            user_id=existing_user["id"],
+            user_id=invite_target["id"],
             type="team_invite",
             title="Team invitation",
             message=f'{inviter_name} added you to team "{team_name}"',
@@ -288,7 +299,7 @@ async def invite_member_by_email(
     subject, html = build_invite_email(inviter_name, team_name, f"{app_url}/join/{team_slug}")
     await send_email(invite_data.email, subject, html)
 
-    return {"message": f"Invitation sent to {invite_data.email}", "member": new_member.dict()}
+    return {"message": f"Invitation sent to {invite_data.email}"}
 
 
 
