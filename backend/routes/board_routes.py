@@ -543,9 +543,7 @@ async def get_board_members_list(
     board = await db.boards.find_one({"id": board_id})
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
-    member_ids = board.get("member_ids", [])
-    if board.get("owner_id") and board["owner_id"] not in member_ids:
-        member_ids.append(board["owner_id"])
+    member_ids = list(set(board.get("member_ids", []) + ([board["owner_id"]] if board.get("owner_id") else [])))
     users = await db.users.find({"id": {"$in": member_ids}}, {"_id": 0, "hashed_password": 0}).to_list(200)
     return [{"id": u["id"], "name": u.get("name", ""), "email": u.get("email", "")} for u in users]
 

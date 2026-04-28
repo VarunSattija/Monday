@@ -4,48 +4,42 @@
 Build a replica of monday.com with the branding (logo and theme) of Acuity Professional.
 
 ## Tech Stack
-- **Frontend**: React, React Router, TailwindCSS, Shadcn UI, Recharts, Axios, WebSocket
-- **Backend**: FastAPI, MongoDB (motor async), Pydantic, JWT auth, openpyxl, WebSocket, httpx
+- Frontend: React, TailwindCSS, Shadcn UI, Recharts, Axios, WebSocket
+- Backend: FastAPI, MongoDB, JWT auth, openpyxl, httpx
 
-## Completed Features (Phases 1-8)
+## Completed Features (Phases 1-9)
 
-### Core: Auth, Workspaces, Folders, Boards, Groups, Items
-### Column Types: text, status, person, date, numbers (£/$/ €/%), priority, tags, checkbox, link, formula
-### Import/Export: Excel import with group detection, Excel export with hyperlinks
-### Charts: Multi-chart with DB persistence (bar/pie/line)
-### Table UX: Column headers per group, checkboxes, insert between rows, bulk actions (delete, move/copy to group/board)
-### Column Mgmt: Resize (drag), Reorder (drag-and-drop), Monday.com-style Toolbar (Search/Person/Filter/Sort/Hide/Group by)
-### Numbers: Currency settings (£/$/ €/%), Formula column (SUM/AVG/arithmetic), Group summary rows with sum totals
-### Advanced: Select All, Favourites (sidebar), Activity Log with Undo, Real-time WebSocket collaboration
-### Sharing: Board invite, Team invite, shareable join link (/join/Acuityprofessional)
-### Performance: Paginated groups (50 items/page)
+### Core: Auth, Workspaces, Folders, Boards, Groups, Items, Comments with @mentions
+### Columns: text, status, person, date, numbers (£/$/ €/%), priority, tags, checkbox, link, formula
+### Import/Export: Excel import (group detection, append), Excel export (hyperlinks)
+### Charts: Multi-chart (bar/pie/line) with DB persistence
+### Table UX: Column headers per group, checkboxes, insert rows, bulk actions, column resize/reorder
+### Toolbar: Search, Person, Filter, Sort, Hide, Group by
+### Numbers: Currency, Formula (SUM/AVG), Group summary rows
+### Notifications: Bell icon + panel (All/Mentioned/Assigned), @mention detection
+### Email: Resend/SendGrid ready (MOCKED - no key)
+### Sharing: Board invite, Team invite, join link
+### Real-time: WebSocket collaboration
+### Favourites: Star boards, sidebar section
+### Activity Log: Full CRUD logging (create, delete, rename, update, bulk move, automation)
 
-### Phase 7 - Notifications & Email (Apr 24, 2026)
-- In-App Notifications Panel (bell icon, tabs, search, unread badge, mark read)
-- Email Infrastructure (Resend/SendGrid ready, templates built, **MOCKED** - no API key)
-- Notification triggers: board invite, team invite, item comments
+### Phase 9 — Board Invite + Automations + Activity Log (Apr 28, 2026)
+- **Board Invite Dialog Redesign** — Shows real board members from API with avatar, name, email, owner crown + badge, member badge + X remove button. Email invite with notification.
+- **Status-Change Automation** — "When [Status Column] changes to [Value] → Move item to [Group]". Full UI with board picker, status column dropdown, value picker (from column options), target group selector. Backend automation engine runs on every item update and auto-moves items.
+- **Complete Activity Log** — Now logs: item create, item delete, column value changes, name changes, bulk moves, automation-triggered moves (logged as user "Automation"). Essential for compliance.
+- **Automation Engine** — Backend `automation_engine.py` with `run_automations_for_item()` called from `update_item`. Supports `move_to_group`, `change_status`, `send_notification` actions.
 
-### Phase 8 - @Mentions in Comments (Apr 24, 2026)
-- **@mention dropdown** — Type @ in comment box, dropdown shows team members (avatar, name, email). Excludes current user.
-- **Mention insertion** — Click or keyboard select inserts @Name into comment text
-- **Mention highlighting** — @mentions render with orange background in comment feed
-- **Mention notifications** — Mentioned users get type="mention" notification: "You were mentioned in {item}"
-- **Deduped notifications** — Mentioned users get "mention" type; other board members get "update" type (no duplicates)
-- **Board members endpoint** — GET /api/boards/{id}/members/list returns [{id, name, email}]
+## Key Endpoints
+- POST /api/automations (with trigger_config + action_config)
+- Automation engine runs inline on PUT /api/items/{id}
+- All activity types logged to GET /api/activity/board/{id}
 
-## Key API Endpoints
-- GET /api/notifications/me, /me/unread-count, PUT /{id}/read, /read-all
-- GET /api/boards/{id}/members/list
-- POST /api/updates (with @mention detection)
-- All previous endpoints intact
+## Email: **MOCKED** — Add RESEND_API_KEY or SENDGRID_API_KEY to backend/.env
 
-## Email Status: **MOCKED** — Add RESEND_API_KEY or SENDGRID_API_KEY to backend/.env
-
-## P1 - Next Tasks
-- File column uploads (file storage)
-- Configure email API key
+## P1 - Next
+- File column uploads, Configure email API key
 
 ## P2 - Future
-- AI Agent functionality, Column-level permissions, Dashboard widgets
+- AI Agent, Column-level permissions, Dashboard widgets
 
-## Testing: Iterations 1-11 (latest: 5/5 backend + 100% frontend)
+## Testing: Iterations 1-12 (latest: 8/8 backend + 100% frontend)
