@@ -32,7 +32,16 @@
   - `POST /api/v1/boards/{id}/items` — create item via API (for CV parser ingestion)
   - Documentation + cURL/Python snippets shown in-app.
 
-## Testing: Iteration 17 — Backend 100% (22/22 pytest), Frontend verified via screenshot + e2e public form submit flow.
+### Phase 15 (Apr 29, 2026)
+- **TOTP Two-Factor Authentication** — Settings → General → 2FA section. Setup with QR code (Google Authenticator / Microsoft Authenticator / Authy / 1Password) → 6-digit verification → 10 backup codes generated. Login flow auto-detects 2FA enabled and prompts for code (or backup code, which is consumed on use). Disable requires password + valid code. Endpoints: `/api/auth/2fa/{setup,enable,disable,status,verify-challenge,regenerate-backup-codes}`. Replaces previous stubbed "Enable" button.
+- **Acuity SDK (Python + JavaScript)** — Drop-in client libraries mirroring monday.com SDK shape:
+  - `acuity.api.boards.list/get`, `acuity.api.items.create`, `acuity.api.whoami`
+  - `acuity.storage.get/set/delete/keys` — key/value app storage scoped per-user or per-workspace via `/api/v1/storage`
+  - `acuity.events.on_board(id, cb)` (Python) / `acuity.listen(id, cb)` (JS) — WebSocket subscriptions to live board events
+  - `acuity.auth.login(email, password, totp?)` — handles 2FA challenge automatically
+  - Distributed via `/api/sdk/{python,javascript,javascript/cdn,readme}`. Download buttons + sample code in Developer tab.
+
+## Testing: Iteration 18 — Backend 100% (20/20 pytest), Frontend 100%, no bugs.
 
 
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
