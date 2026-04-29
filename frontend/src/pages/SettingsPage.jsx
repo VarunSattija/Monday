@@ -30,10 +30,12 @@ import {
   X,
   Mail,
   Trash2,
+  Code2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../hooks/use-toast';
 import api from '../config/api';
+import DeveloperTab from '../components/settings/DeveloperTab';
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -192,6 +194,10 @@ const SettingsPage = () => {
                 <TabsTrigger value="ai" className="data-[state=active]:bg-orange-50">
                   <Brain className="h-4 w-4 mr-2" />
                   AI Governance
+                </TabsTrigger>
+                <TabsTrigger value="developer" className="data-[state=active]:bg-orange-50" data-testid="tab-developer">
+                  <Code2 className="h-4 w-4 mr-2" />
+                  Developer
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -429,6 +435,10 @@ const SettingsPage = () => {
                 <CardHeader><CardTitle>AI Governance</CardTitle><CardDescription>Control AI features and data usage</CardDescription></CardHeader>
                 <CardContent><p className="text-gray-500">AI governance settings coming soon...</p></CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="developer" className="mt-0">
+              <DeveloperTab />
             </TabsContent>
           </div>
         </Tabs>

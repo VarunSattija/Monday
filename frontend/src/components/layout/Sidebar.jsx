@@ -1,23 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Brain, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal, Star, User, Settings, LogOut } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, Zap, ChevronDown, ChevronRight, Plus, Users, FolderOpen, Folder, Upload, Pencil, Trash2, MoreHorizontal, Star } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
 import { toast } from '../../hooks/use-toast';
 import api from '../../config/api';
 
 const Sidebar = ({ onOpenImport }) => {
-  const { user, logout } = useAuth();
   const { workspaces, currentWorkspace, setCurrentWorkspace, boards, sharedBoards, fetchBoards } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,11 +44,6 @@ const Sidebar = ({ onOpenImport }) => {
 
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
   useEffect(() => { fetchFavorites(); }, [fetchFavorites]);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim() || !currentWorkspace) return;
@@ -296,53 +287,6 @@ const Sidebar = ({ onOpenImport }) => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* User Section */}
-      <div className="p-4 border-t border-gray-200">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start p-2">
-              <Avatar className="h-8 w-8 mr-2">
-                <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white">{user?.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64 p-2" align="start" side="top">
-            <div className="flex items-center gap-2 px-2 py-2 mb-1">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold">{user?.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-semibold">{user?.name}</p>
-                <p className="text-xs text-gray-400">{user?.email}</p>
-              </div>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-my-profile">
-              <User className="h-4 w-4 mr-2" /> My profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-administration">
-              <Settings className="h-4 w-4 mr-2" /> Administration
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(currentWorkspace ? `/workspaces/${currentWorkspace.id}/team` : '/settings')} data-testid="menu-teams">
-              <Users className="h-4 w-4 mr-2" /> Teams
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate(currentWorkspace ? `/workspaces/${currentWorkspace.id}/import` : '/settings')} data-testid="menu-import">
-              <Upload className="h-4 w-4 mr-2" /> Import data
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600" data-testid="menu-logout">
-              <LogOut className="h-4 w-4 mr-2" /> Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );

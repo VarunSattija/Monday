@@ -5,11 +5,12 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Plus, Table as TableIcon, Calendar, BarChart3, History, Pencil, Check, Download } from 'lucide-react';
+import { Plus, Table as TableIcon, Calendar, BarChart3, History, Pencil, Check, Download, FileText } from 'lucide-react';
 import TableView from '../components/board/TableView';
 import ChartView from '../components/board/ChartView';
 import TimelineView from '../components/board/TimelineView';
 import CalendarView from '../components/board/CalendarView';
+import FormView from '../components/board/FormView';
 import AddColumnDialog from '../components/board/AddColumnDialog';
 import ActivityLog from '../components/board/ActivityLog';
 import BoardContextMenu from '../components/board/BoardContextMenu';
@@ -232,6 +233,10 @@ const BoardPage = () => {
                 <Calendar className="h-4 w-4 mr-2" />
                 Calendar
               </TabsTrigger>
+              <TabsTrigger value="form" className="data-[state=active]:bg-orange-50 data-[state=active]:text-orange-600" data-testid="form-tab">
+                <FileText className="h-4 w-4 mr-2" />
+                Form
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -261,6 +266,9 @@ const BoardPage = () => {
           )}
           {currentView === 'calendar' && (
             <CalendarView board={board} items={items} onRefresh={fetchBoardData} />
+          )}
+          {currentView === 'form' && (
+            <FormView board={board} groups={groups} />
           )}
         </div>
       </div>

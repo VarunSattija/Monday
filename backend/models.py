@@ -270,3 +270,64 @@ class Dashboard(BaseModel):
     name: str
     widgets: List[DashboardWidget] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Form Models (Public form-to-board ingestion)
+class FormFieldConfig(BaseModel):
+    column_id: str
+    hidden: bool = False
+    required: bool = False
+    label: Optional[str] = None
+    description: Optional[str] = None
+
+
+class FormCreate(BaseModel):
+    board_id: str
+    name: str
+    description: Optional[str] = None
+    group_id: Optional[str] = None
+    fields: List[FormFieldConfig] = []
+    success_message: Optional[str] = "Thanks! Your submission has been recorded."
+
+
+class FormUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    group_id: Optional[str] = None
+    fields: Optional[List[FormFieldConfig]] = None
+    success_message: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class Form(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    board_id: str
+    name: str
+    description: Optional[str] = None
+    group_id: Optional[str] = None
+    fields: List[FormFieldConfig] = []
+    success_message: Optional[str] = "Thanks! Your submission has been recorded."
+    enabled: bool = True
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Personal Access Token / API Key Models
+class APIKeyCreate(BaseModel):
+    name: str
+    scope: str = "user"  # 'user' or 'workspace'
+    workspace_id: Optional[str] = None
+
+
+class APIKey(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    key_prefix: str  # first 12 chars for display (e.g. "ak_live_abc...")
+    key_hash: str
+    user_id: str
+    scope: str = "user"
+    workspace_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+    revoked: bool = False

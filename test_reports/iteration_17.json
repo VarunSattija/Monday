@@ -1,0 +1,57 @@
+{
+  "summary": "Iteration 17 tested 3 new features (header avatar relocation, Form View, Developer API). Backend: 22/22 pytest PASS covering form CRUD, public form (no-auth) submission with required-field validation, API key creation/list/revoke, /api/api-keys/whoami, /api/v1/boards|/{id}|/items, workspace-scope 403, revoked-key 401. Frontend: header avatar + dropdown + sidebar profile removal verified, Form tab + create + public URL + 39 visible/required toggles + save toast verified, Developer tab UI verified (modal, scope select, name field, Generate button, revoke). CRITICAL: PublicFormPage at /f/{id} CRASHES with React runtime error 'A <Select.Item /> must have a value prop that is not an empty string' when board has status/priority columns with empty-string option labels — this prevents the entire public form from rendering, blocking the user-facing form submission flow.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PublicFormPage.jsx (FieldInput status/priority case)",
+        "issue": "Renders <SelectItem value={o.label}> for every option. Pipeline board's Status column has options with empty-string label, which throws 'A <Select.Item /> must have a value prop that is not an empty string' and crashes the whole page. data-testid='public-form-name' and 'public-form-submit' never appear because the React tree fails to render.",
+        "selector": "/app/frontend/src/pages/PublicFormPage.jsx lines 96-104",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "DeveloperTab — Generate Personal Access Token modal",
+        "issue": "Token name input placeholder is 'e.g. CV Parser Script'. Clicking Generate without a name correctly shows 'Name required' toast, but the field has no data-testid (e.g. 'api-key-name-input') — automated tests must guess by placeholder.",
+        "selector": "Generate Personal Access Token modal > Token Name input",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Public form submission (PublicFormPage)",
+        "issue": "Cannot be exercised end-to-end in UI because the page crashes before rendering when board has status/priority options with empty labels. Backend POST /api/forms/public/{id}/submit works correctly (verified via API tests).",
+        "affected_selectors": ["public-form-name", "public-form-submit", "public-form-success"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration17_forms_apikeys.py",
+    "/app/test_reports/pytest/iteration17.xml"
+  ],
+  "action_items": [
+    "FIX (CRITICAL): In /app/frontend/src/pages/PublicFormPage.jsx FieldInput, filter out options with falsy/empty label OR provide a synthetic non-empty value. Suggested: const safeOpts = opts.filter(o => o.label && o.label.trim()); then map safeOpts. This single fix unblocks public form rendering for any board that has empty-labelled status/priority options.",
+    "ADD (LOW): data-testid='api-key-name-input' on the Token Name input inside DeveloperTab's generate dialog for cleaner E2E selectors."
+  ],
+  "critical_code_review_comments": [
+    "PublicFormPage relies on SelectItem with value={o.label}; needs a guard or fallback (e.g. value={o.label || `__opt_${o.id}`}) since column option labels are user-editable and can be empty.",
+    "Backend POST /api/forms response_model=Form returns Pydantic model — this currently includes Mongo _id only because pydantic ignores extras; the explicit _serialize_form helper is good. Confirmed no _id leakage in any tested response.",
+    "API key full token is correctly returned only at creation; subsequent GET /api/api-keys never returns 'key' or 'key_hash'. Hashing uses sha256(token) — strong enough for an internal MVP but consider HMAC with a secret pepper or argon2 for production.",
+    "form_routes /forms/public/{id}/submit accepts any column_values dict without per-field type validation (e.g. number column accepts string). Acceptable for MVP but worth typed validation eventually.",
+    "DeveloperTab modal shows 'User — access all my boards' as default scope; workspace scope option works and creates a workspace-scoped key (verified via backend tests including 403 cross-workspace)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration17_forms_apikeys.py (new)",
+    "/app/test_reports/iteration_17.json (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "75%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! (used)",
+  "seed_data_creation": "Created and cleaned up: TEST_form_iter17 form, TEST_user_key + TEST_ws_key API keys, TEST_iter17_other_ws workspace + TEST_iter17_other_board (left in DB — minor; cleanup not implemented in test). Created board items: TEST_iter17_item_ok (form), TEST_iter17_api_item (API), TEST_iter17_pub_v3 (UI attempt — failed due to crash).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend is solid (22/22 pytest pass — preserve test_iteration17_forms_apikeys.py for regression). The only remaining issue is the PublicFormPage SelectItem crash for boards with empty-label status options. After main agent fixes PublicFormPage, retest by visiting /f/<form_id> for Pipeline board (id 80443bd5-2839-4909-955b-e13157def5eb) and confirming public-form-name + public-form-submit + public-form-success testids render. Test form ids created during this run: c53cd404-e9c2-4cbf-9351-272e0e3afd3a and d66fe5fa-8ce0-... (still in DB unless cleaned).",
+  "rca of the issue": "RCA: PublicFormPage.jsx FieldInput maps board column options to <SelectItem value={o.label}>. The Pipeline board's Status column contains an option with an empty-string label (likely a 'blank/unset' option seeded in the DB). Radix UI's SelectItem throws when value is an empty string because empty string is reserved for 'cleared' state. Result: error boundary at app level shows 'Uncaught runtime errors' overlay and the form tree never mounts, so testids never exist. Reproduction: open /f/<any_form_for_pipeline_board> in incognito → red error overlay. Mitigation: filter options where !o.label or trim()=='' before .map; or substitute a placeholder value like `__empty_${o.id}` and display the label as a dash."
+}

@@ -20,6 +20,7 @@ import AIAgentCreation from './pages/AIAgentCreation';
 import TeamPage from './pages/TeamPage';
 import CompanySelection from './pages/CompanySelection';
 import JoinTeamPage from './pages/JoinTeamPage';
+import PublicFormPage from './pages/PublicFormPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -52,6 +53,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/join/:teamSlug" element={<JoinTeamPage />} />
+              <Route path="/f/:formId" element={<PublicFormPage />} />
               <Route
                 path="/select-company"
                 element={
