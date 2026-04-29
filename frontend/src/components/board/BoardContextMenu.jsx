@@ -28,7 +28,7 @@ import { toast } from '../../hooks/use-toast';
 
 const BoardContextMenu = ({ board, onUpdate }) => {
   const navigate = useNavigate();
-  const { workspaces } = useWorkspace();
+  const { workspaces, fetchBoards: refreshSidebarBoards } = useWorkspace();
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
@@ -60,7 +60,11 @@ const BoardContextMenu = ({ board, onUpdate }) => {
           ? `Moved to ${folders.find((f) => f.id === folderId)?.name || 'folder'}`
           : 'Removed from folder',
       });
+      // Refresh both: the board page (via parent) and the sidebar tree
       onUpdate?.();
+      if (board?.workspace_id) {
+        try { await refreshSidebarBoards(board.workspace_id); } catch (_) {}
+      }
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to move board', variant: 'destructive' });
     }

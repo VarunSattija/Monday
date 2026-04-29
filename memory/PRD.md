@@ -43,6 +43,13 @@
 
 ## Testing: Iteration 18 — Backend 100% (20/20 pytest), Frontend 100%, no bugs.
 
+### Phase 16 (Apr 29, 2026)
+- **Resizable sidebar** — Drag the right edge to resize between 220–480px. Width persists in localStorage. Double-click handle to reset. Lets users see long board names + per-board kebab menu.
+- **Drag & drop boards into folders** — Each sidebar board is HTML5 draggable. Drop on a folder header to move into it (orange ring highlight on hover). Drop on the BOARDS root area to remove from a folder. Empty folders show "Drop a board here" hint.
+- **Move-to-folder in board "..." menu** — BoardContextMenu now has a "Move to folder" submenu (workspace's folders + "Remove from folder" when applicable). Original "Move to" submenu renamed to "Move to workspace" for clarity. Sidebar tree refreshes immediately on move.
+
+## Testing: Iteration 19 — Frontend 100% (8/8), no bugs.
+
 
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
 ## Sender: Varun.sattija@acuityprofessional.com
