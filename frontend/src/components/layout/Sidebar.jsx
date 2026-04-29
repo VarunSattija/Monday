@@ -13,6 +13,10 @@ import {
 import { toast } from '../../hooks/use-toast';
 import api from '../../config/api';
 
+const SIDEBAR_MIN = 220;
+const SIDEBAR_MAX = 480;
+const SIDEBAR_DEFAULT = 256;
+
 const Sidebar = ({ onOpenImport }) => {
   const { workspaces, currentWorkspace, setCurrentWorkspace, boards, sharedBoards, fetchBoards } = useWorkspace();
   const navigate = useNavigate();
@@ -26,6 +30,12 @@ const Sidebar = ({ onOpenImport }) => {
   const [renamingFolderName, setRenamingFolderName] = useState('');
   const [favorites, setFavorites] = useState([]);
   const [showFavorites, setShowFavorites] = useState(true);
+  const [width, setWidth] = useState(() => {
+    const saved = parseInt(localStorage.getItem('sidebar_width') || '0', 10);
+    return saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX ? saved : SIDEBAR_DEFAULT;
+  });
+  const [resizing, setResizing] = useState(false);
+  const [dragOverFolder, setDragOverFolder] = useState(null); // folder_id or '__root__'
 
   const fetchFolders = useCallback(async () => {
     if (!currentWorkspace) return;
@@ -44,6 +54,31 @@ const Sidebar = ({ onOpenImport }) => {
 
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
   useEffect(() => { fetchFavorites(); }, [fetchFavorites]);
+
+  // Resize handlers
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e) => {
+      const newW = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX));
+      setWidth(newW);
+    };
+    const onUp = () => {
+      setResizing(false);
+      // persist on release using current width (read via callback below)
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [resizing]);
+
+  useEffect(() => {
+    if (!resizing) {
+      localStorage.setItem('sidebar_width', String(width));
+    }
+  }, [resizing, width]);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim() || !currentWorkspace) return;
@@ -106,7 +141,19 @@ const Sidebar = ({ onOpenImport }) => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
+    <div
+      className="bg-white border-r border-gray-200 flex flex-col h-screen relative flex-shrink-0"
+      style={{ width: `${width}px` }}
+      data-testid="app-sidebar"
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={() => setResizing(true)}
+        onDoubleClick={() => setWidth(SIDEBAR_DEFAULT)}
+        className={`absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-orange-300 z-10 ${resizing ? 'bg-orange-400' : ''}`}
+        title="Drag to resize · double-click to reset"
+        data-testid="sidebar-resize-handle"
+      />
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center mb-4">
@@ -216,7 +263,17 @@ const Sidebar = ({ onOpenImport }) => {
           {/* Folders with boards */}
           {folders.map((folder) => (
             <div key={folder.id} className="mb-1" data-testid={`folder-${folder.id}`}>
-              <div className="flex items-center group">
+              <div
+                className={`flex items-center group rounded transition-colors ${dragOverFolder === folder.id ? 'bg-orange-100 ring-2 ring-orange-300' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverFolder(folder.id); }}
+                onDragLeave={() => setDragOverFolder((cur) => cur === folder.id ? null : cur)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const boardId = e.dataTransfer.getData('text/board-id');
+                  setDragOverFolder(null);
+                  if (boardId) handleMoveBoardToFolder(boardId, folder.id);
+                }}
+              >
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0" onClick={() => toggleFolder(folder.id)}>
                   {collapsedFolders.has(folder.id) ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 </Button>
@@ -261,15 +318,26 @@ const Sidebar = ({ onOpenImport }) => {
                     <BoardItem key={board.id} board={board} folders={folders} onMove={handleMoveBoardToFolder} />
                   ))}
                   {(boardsByFolder[folder.id] || []).length === 0 && (
-                    <p className="text-xs text-gray-400 py-1 pl-2">No boards</p>
+                    <p className="text-xs text-gray-400 py-1 pl-2">Drop a board here</p>
                   )}
                 </div>
               )}
             </div>
           ))}
 
-          {/* Unfoldered boards */}
-          <div className="space-y-0.5">
+          {/* Unfoldered boards (drop here removes from folder) */}
+          <div
+            className={`space-y-0.5 rounded transition-colors ${dragOverFolder === '__root__' ? 'bg-orange-50 ring-1 ring-orange-200' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOverFolder('__root__'); }}
+            onDragLeave={() => setDragOverFolder((cur) => cur === '__root__' ? null : cur)}
+            onDrop={(e) => {
+              e.preventDefault();
+              const boardId = e.dataTransfer.getData('text/board-id');
+              setDragOverFolder(null);
+              if (boardId) handleMoveBoardToFolder(boardId, null);
+            }}
+            data-testid="sidebar-root-droparea"
+          >
             {unfoldered.map((board) => (
               <BoardItem key={board.id} board={board} folders={folders} onMove={handleMoveBoardToFolder} />
             ))}
@@ -309,7 +377,16 @@ const BoardItem = ({ board, folders, onMove, shared, isFavorite, onToggleFavorit
   };
 
   return (
-    <div className="flex items-center group">
+    <div
+      className="flex items-center group"
+      draggable={!shared}
+      onDragStart={(e) => {
+        if (shared) return;
+        e.dataTransfer.setData('text/board-id', board.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      data-testid={`sidebar-board-${board.id}`}
+    >
       <Button
         variant="ghost"
         className={`w-full justify-start text-sm h-7 px-2 ${isActive ? 'bg-orange-50 text-orange-600' : ''}`}

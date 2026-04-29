@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MoreHorizontal, Move, Copy, Lock, Star, Save, Trash2, Archive, Eye, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MoreHorizontal, Move, Copy, Lock, Star, Save, Trash2, Archive, Eye, Download, Folder, FolderOpen } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +36,35 @@ const BoardContextMenu = ({ board, onUpdate }) => {
   const [includeSubscribers, setIncludeSubscribers] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState('');
   const [boardType, setBoardType] = useState(board?.is_private ? 'private' : 'shareable');
+  const [folders, setFolders] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!board?.workspace_id) return;
+      try {
+        const res = await api.get(`/folders/workspace/${board.workspace_id}`);
+        if (!cancelled) setFolders(res.data);
+      } catch (_) { /* silent */ }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [board?.workspace_id]);
+
+  const handleMoveToFolder = async (folderId) => {
+    try {
+      await api.put(`/folders/boards/${board.id}/move?folder_id=${folderId || ''}`);
+      toast({
+        title: 'Moved',
+        description: folderId
+          ? `Moved to ${folders.find((f) => f.id === folderId)?.name || 'folder'}`
+          : 'Removed from folder',
+      });
+      onUpdate?.();
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to move board', variant: 'destructive' });
+    }
+  };
 
   const handleDuplicate = async () => {
     try {
@@ -139,7 +168,7 @@ const BoardContextMenu = ({ board, onUpdate }) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Move className="h-4 w-4 mr-2" />
-              Move to
+              Move to workspace
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {workspaces.map((ws) => (
@@ -153,6 +182,40 @@ const BoardContextMenu = ({ board, onUpdate }) => {
                   {ws.name}
                 </DropdownMenuItem>
               ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-testid="board-move-to-folder">
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Move to folder
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {board?.folder_id && (
+                <DropdownMenuItem
+                  onClick={() => handleMoveToFolder(null)}
+                  data-testid="board-remove-from-folder"
+                >
+                  <Folder className="h-3.5 w-3.5 mr-2 text-gray-400" />
+                  Remove from folder
+                </DropdownMenuItem>
+              )}
+              {folders.length === 0 && (
+                <DropdownMenuItem disabled>
+                  No folders in this workspace
+                </DropdownMenuItem>
+              )}
+              {folders
+                .filter((f) => f.id !== board?.folder_id)
+                .map((folder) => (
+                  <DropdownMenuItem
+                    key={folder.id}
+                    onClick={() => handleMoveToFolder(folder.id)}
+                    data-testid={`board-move-to-folder-${folder.id}`}
+                  >
+                    <Folder className="h-3.5 w-3.5 mr-2 text-indigo-500" />
+                    {folder.name}
+                  </DropdownMenuItem>
+                ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuItem onClick={() => setShowTypeDialog(true)}>
