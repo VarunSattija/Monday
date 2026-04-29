@@ -83,7 +83,7 @@ const FieldInput = ({ col, value, onChange }) => {
       );
     case 'status':
     case 'priority': {
-      const opts = col.options || [];
+      const opts = (col.options || []).filter((o) => o.label && o.label.trim());
       return (
         <Select value={value?.label || value || ''} onValueChange={(label) => {
           const opt = opts.find((o) => o.label === label);

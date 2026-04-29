@@ -22,7 +22,23 @@
 - **User dropdown menu** — My profile, Administration, Teams, Import data, Log out (red). All with icons and navigation.
 - **Board invite: registered users only** — Rejects unregistered emails with clear error message "This email is not registered on the platform. The person must sign up first."
 
+### Phase 14 (Apr 29, 2026)
+- **Profile avatar relocated** — Moved user avatar/dropdown from bottom of Sidebar (was overlapping) to top-right of Header (Monday.com style). Full menu (My profile, Administration, Teams, Import data, Log out) remains.
+- **Board Form View** — New "Form" tab on each board. Auto-generates a public, shareable form from board columns. Settings: per-field visibility/required toggles, custom labels, target group, success message, enable/disable. Public URL `/f/{form_id}` opens a branded form (no login needed); submission creates an item with required-field validation + automation triggers.
+- **Developer API (Personal Access Tokens)** — New "Developer" tab in Settings. Generate scoped tokens (per-user OR per-workspace), revoke anytime, sha256-hashed at rest. Public API at `/api/v1/*`:
+  - `GET /api/api-keys/whoami` — verify token
+  - `GET /api/v1/boards` — list accessible boards (workspace-scoped if applicable)
+  - `GET /api/v1/boards/{id}` — full schema (columns + groups)
+  - `POST /api/v1/boards/{id}/items` — create item via API (for CV parser ingestion)
+  - Documentation + cURL/Python snippets shown in-app.
+
+## Testing: Iteration 17 — Backend 100% (22/22 pytest), Frontend verified via screenshot + e2e public form submit flow.
+
+
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
 ## Sender: Varun.sattija@acuityprofessional.com
 
-## Testing: Iterations 1-16 (latest: 100% backend + 100% frontend)
+## Backlog
+- (P1) File Column uploads (needs Object Storage integration)
+- (P2) AI Agents (currently scaffolded)
+- (P2) Board Templates
