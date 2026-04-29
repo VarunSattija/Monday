@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Separator } from '../components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import {
@@ -36,6 +35,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../hooks/use-toast';
 import api from '../config/api';
 import DeveloperTab from '../components/settings/DeveloperTab';
+import TwoFactorSection from '../components/settings/TwoFactorSection';
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -252,16 +252,10 @@ const SettingsPage = () => {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-500">Add an extra layer of security</p>
-                    </div>
-                    <Button variant="outline">Enable</Button>
-                  </div>
                 </CardContent>
               </Card>
+
+              <TwoFactorSection />
             </TabsContent>
 
             {/* Permissions Tab */}

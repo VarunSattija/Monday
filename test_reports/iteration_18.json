@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 18: Tested TOTP 2FA, key-value Storage API, SDK download endpoints, Python SDK functional integration, JS SDK syntactic load, and frontend flows (Settings 2FA section, Developer SDK cards, Login 2FA stage). All 20 pytest cases pass. End-to-end UI 2FA login flow lands at /workspaces. 2FA cleaned up after testing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration18_2fa_storage_sdk.py",
+    "/app/test_reports/pytest/iteration18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "sdk/python/acuity_sdk.py and sdk/javascript/acuity-sdk.js hardcode the preview URL as DEFAULT_API_URL — fine for current host but should be documented/configurable for OSS distribution (env var ACUITY_API_URL is already supported, just call it out in README).",
+    "twofa_routes.py uses module-level db = get_db() instead of lazy import (storage_routes pattern). Works because get_db() returns a Motor client lazily, but consider unifying for testability.",
+    "/api/auth/2fa/disable verifies password with verify_password but does not gate on rate-limit; consider adding throttling on disable endpoint.",
+    "Storage GET on missing key returns 200 with value:null instead of 404 — intentional (matches monday.com), but document this in SDK README so consumers don't treat null as 'present with null value'.",
+    "JS SDK: AcuityError() returned via factory function (not thrown via 'new') — works but odd; minor."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration18_2fa_storage_sdk.py"],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! — 2FA disabled at end of run. Confirmed login response has no requires_2fa flag.",
+  "seed_data_creation": "Created two TEST_-prefixed API keys (TEST_iter18_user, TEST_iter18_workspace). Storage keys created during tests are deleted in test bodies. PAT tokens remain in DB but are name-prefixed for easy cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "2FA is disabled at end of run (verified via /auth/login returning access_token directly). If 2FA re-enabled, test_iteration18 has full TOTP setup→enable→login challenge→verify→disable cycle that auto-cleans. Use pyotp.TOTP(secret).now() to compute codes. Workspace-scoped storage uses {scope:workspace, workspace_id} filter; user-scoped uses {scope:user, user_id} — they are isolated even with same key name. Existing test_iteration17_forms_apikeys.py was not re-run but its API key endpoints unchanged.",
+  "rca of the issue": "N/A — all features working as specified. No bugs found."
+}

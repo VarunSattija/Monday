@@ -15,6 +15,7 @@ from routes import ws_routes
 from routes import notification_routes
 from routes import view_routes
 from routes import form_routes, api_key_routes
+from routes import twofa_routes, storage_routes, sdk_routes
 
 
 ROOT_DIR = Path(__file__).parent
@@ -57,6 +58,9 @@ api_router.include_router(view_routes.router)
 api_router.include_router(form_routes.router)
 api_router.include_router(api_key_routes.router)
 api_router.include_router(api_key_routes.public_api)
+api_router.include_router(twofa_routes.router)
+api_router.include_router(storage_routes.router)
+api_router.include_router(sdk_routes.router)
 
 # WebSocket routes (mounted at /api/ws/... via api_router)
 api_router.include_router(ws_routes.router)

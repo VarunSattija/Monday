@@ -164,7 +164,7 @@ async def login(credentials: UserLogin):
             detail="Invalid email or password"
         )
     
-    user_in_db = UserInDB(**user_data)
+    user_in_db = UserInDB(**{k: v for k, v in user_data.items() if k in UserInDB.__fields__})
     
     # Verify password
     if not verify_password(credentials.password, user_in_db.hashed_password):
@@ -173,6 +173,15 @@ async def login(credentials: UserLogin):
             detail="Invalid email or password"
         )
     
+    # If 2FA enabled, return a challenge token instead of the access token
+    if user_data.get("totp_enabled"):
+        from routes.twofa_routes import make_2fa_challenge_token
+        challenge = make_2fa_challenge_token(user_in_db.id)
+        return {
+            "requires_2fa": True,
+            "challenge_token": challenge,
+        }
+
     # Create access token
     access_token = create_access_token(
         data={"sub": user_in_db.id, "email": user_in_db.email}

@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { Plus, KeyRound, Copy, Trash2, Check, Code2 } from 'lucide-react';
+import { Plus, KeyRound, Copy, Trash2, Check, Code2, Download, Package } from 'lucide-react';
 import { toast } from '../../hooks/use-toast';
 import api from '../../config/api';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
@@ -326,6 +326,89 @@ print(res.json())`;
           <div>
             <Label className="text-xs uppercase tracking-wide text-gray-500">Python example (CV parser flow)</Label>
             <pre className="bg-gray-900 text-green-300 text-xs p-3 rounded-lg overflow-auto mt-1" data-testid="api-doc-python">{samplePython}</pre>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SDKs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-orange-500" />
+            Acuity SDK
+          </CardTitle>
+          <CardDescription>
+            Drop-in client libraries for Python and JavaScript. Mirrors the monday.com SDK shape (api / storage / listen).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 border rounded-lg bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Python</h4>
+                <Badge variant="outline">v1.0.0</Badge>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">acuity_sdk.py · requires <code>requests</code> + <code>websocket-client</code></p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild data-testid="download-python-sdk">
+                  <a href={`${apiBase}/sdk/python`} download>
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </a>
+                </Button>
+              </div>
+              <pre className="bg-gray-900 text-green-300 text-xs p-2 rounded mt-3 overflow-auto">
+{`from acuity_sdk import AcuitySDK
+acuity = AcuitySDK(token="ak_...")
+acuity.api.boards.list()
+acuity.api.items.create(
+  board_id="<id>",
+  name="Candidate",
+  column_values={"<col>": "value"},
+)
+acuity.storage.set("key", {"any": "json"})
+acuity.events.on_board("<id>", print)`}
+              </pre>
+            </div>
+
+            <div className="p-4 border rounded-lg bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">JavaScript / Node</h4>
+                <Badge variant="outline">v1.0.0</Badge>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">acuity-sdk.js · UMD (Node + Browser)</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild data-testid="download-js-sdk">
+                  <a href={`${apiBase}/sdk/javascript`} download>
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </a>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`<script src="${apiBase}/sdk/javascript/cdn"></script>`);
+                    toast({ title: 'Copied <script> tag' });
+                  }}
+                  data-testid="copy-js-cdn"
+                >
+                  <Copy className="h-4 w-4 mr-2" /> Copy CDN
+                </Button>
+              </div>
+              <pre className="bg-gray-900 text-green-300 text-xs p-2 rounded mt-3 overflow-auto">
+{`const acuitySdk = require('./acuity-sdk.js');
+const acuity = acuitySdk({ token: 'ak_...' });
+const boards = await acuity.api.boards.list();
+await acuity.api.items.create(boards[0].id, {
+  name: 'Candidate',
+  column_values: { '<col>': 'value' },
+});
+acuity.listen(boards[0].id, console.log);`}
+              </pre>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Both SDKs include: <code>api.boards</code>, <code>api.items</code>, <code>storage</code> (key-value), and live <code>listen</code>/<code>events</code> via WebSocket.
+            Full reference: <a href={`${apiBase}/sdk/readme`} target="_blank" rel="noreferrer" className="text-orange-600 hover:underline">README →</a>
           </div>
         </CardContent>
       </Card>
