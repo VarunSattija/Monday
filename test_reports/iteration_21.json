@@ -1,0 +1,67 @@
+{
+  "summary": "Iteration 21: validated invitee->active flip on signup, signup confirmation email best-effort, /api/auth/users/search endpoint, board-invite regression, and InviteToBoardDialog autocomplete UI. 6/7 backend tests pass; 1 CRITICAL backend bug found in auth_routes.register flip query. Frontend autocomplete works as designed (acuity=7 suggestions, viewer board-member filtered out, pragati=1 suggestion).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/register",
+        "issue": "When the registering email was previously invited to the Acuity-Professional team, the invited record is NOT flipped to active for that user. INSTEAD, a DIFFERENT invited member's record gets corrupted (its user_id/name/avatar/joined_at gets overwritten with the new user's data, status set to 'active'). Reproduced with concrete data corruption on member 'invited_92fbc9@test.com' which now shows name='Signup Tester'. This is a MongoDB positional-operator bug in /app/backend/routes/auth_routes.py lines 69-78: the query `{\"name\": \"Acuity-Professional\", \"members.email\": user_data.email, \"members.status\": \"invited\"}` uses two separate dotted-array filters; MongoDB does not require both to match the SAME array element, and the `$` positional operator becomes ambiguous (matches arbitrary first element satisfying any single condition). FIX: use $elemMatch like the lines 97-109 update_many block already does correctly: `{\"name\": \"Acuity-Professional\", \"members\": {\"$elemMatch\": {\"email\": user_data.email, \"status\": \"invited\"}}}`. Same fix should be applied; the secondary update_many for OTHER teams is already correct.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": {
+    "backend_pytest": {
+      "result": "PASS 6/7",
+      "file": "/app/backend/tests/test_iteration21_invite_signup_search.py",
+      "passing": [
+        "TestUsersSearch::test_search_excludes_self",
+        "TestUsersSearch::test_search_filter_by_name (returns Test Viewer for q=viewer)",
+        "TestUsersSearch::test_search_limit (limit=2 honoured)",
+        "TestUsersSearch::test_search_requires_auth (401 without bearer)",
+        "TestRegisterFlipsInvited::test_register_does_not_raise_when_email_provider_missing (register returns 200 even with no AZURE/RESEND/SENDGRID keys; build_signup_confirmation_email helper executes; send_email logs to stdout per design)",
+        "TestBoardInviteRegression::test_board_invite_still_works (POST /boards/{id}/invite adds viewer to board.member_ids and workspace.member_ids; viewer notifications endpoint /api/notifications/me returns 200)"
+      ],
+      "failing": [
+        "TestRegisterFlipsInvited::test_register_flips_invited_to_active_in_acuity_team — see CRITICAL bug above"
+      ]
+    },
+    "frontend_invite_autocomplete": {
+      "result": "PASS",
+      "details": "Logged in as testuser@acuity.com, opened Pipeline board, clicked data-testid='invite-board-btn'. Dialog shows search input data-testid='invite-email-input' with placeholder 'Search by name or email address'. Typing 'acuity' (200ms debounce) renders data-testid='invite-suggestions' dropdown with 7 items (data-testid='invite-suggestion-{userId}'), each showing avatar, name, email, UserPlus icon. Typing 'viewer' returns 0 suggestions because viewer@acuity.com is already a board member (frontend filter via members set works). Typing 'pragati' returns exactly 1 suggestion (Pragati Yadav). Manual email + Invite button (data-testid='invite-send-btn') remains present and functional alongside autocomplete."
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration21_invite_signup_search.py",
+    "/app/test_reports/pytest/iter21.xml"
+  ],
+  "action_items": [
+    "FIX CRITICAL: /app/backend/routes/auth_routes.py register() lines 69-78 — replace the dual-dotted-array filter with $elemMatch so the positional `$` operator targets the correct invited member. After fix, re-run pytest /app/backend/tests/test_iteration21_invite_signup_search.py::TestRegisterFlipsInvited.",
+    "DATA REPAIR: 'invited_92fbc9@test.com' member of Acuity-Professional team currently has name='Signup Tester', user_id=a33c91cd-d92d-43ca-a717-3d629082d0a7, status='active', avatar='Signup Tester' avatar — corrupted by the buggy flip during testing. Reset that member entry back to status='invited', name='invited_92fbc9' (or original), avatar=null. Other historical invited members may also be silently corrupted if any user previously registered after being invited; consider auditing team.members for entries where user_id does NOT match any document in users collection.",
+    "(Optional) After fix, also verify update_many block (lines 97-109) for other teams — that block already uses $elemMatch and looks correct."
+  ],
+  "critical_code_review_comments": [
+    "auth_routes.register: MongoDB array-positional bug with multi-condition filter — the very same pattern is correctly used (with $elemMatch) just below in update_many; the inconsistency suggests this was an oversight. Use $elemMatch consistently.",
+    "auth_routes.register: 'is_first' is computed BEFORE handling was_invited, so a pre-invited user becomes the first registrant and gets role='member' in the else-branch (correct since they are not first), but the flip branch ignores role entirely — invited member keeps original invite role; this is fine.",
+    "auth_routes.search_users: the projection excludes _id, hashed_password, totp_secret, totp_backup_codes — good. Consider also limiting to active users or adding pagination beyond 'limit' for very large user counts.",
+    "InviteToBoardDialog: searchUsers callback closes over `members` state via useCallback dep — works but each keystroke re-creates the function; minor. Also no loading indicator on the suggestions panel; UX would benefit from a 'Searching...' state.",
+    "InviteToBoardDialog.pickSuggestion immediately invites on click (no role selector) — invited as 'member' only. If owner ever needs to invite as viewer/admin from this dialog, a role dropdown alongside each suggestion is needed (matches monday.com behavior the comment references).",
+    "email_helper.send_email: gracefully degrades to stdout — confirmed no exception when keys missing (Test 6 passed).",
+    "build_signup_confirmation_email: includes 'was_invited' branch with extra copy — works."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration21_invite_signup_search.py (new)"
+  ],
+  "success_rate": {"backend": "86% (6/7)", "frontend": "100%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! (owner); viewer@acuity.com / View123! (board member); pragati.y@acuityprofessional.com (used for autocomplete demo, no login needed)",
+  "seed_data_creation": "Two TEST_signup_<rand>@example.com users were registered into DB during pytest runs (TEST_signup_0b8137d438, TEST_signup_f96c1dd7d7, TEST_emailcheck_2f0619eaac); harmless per main agent note. Each is also in Acuity-Professional team — TEST_signup_* still 'invited' (due to bug) and TEST_emailcheck_* is 'active'. ALSO: pragati.y@acuityprofessional.com was added as Pipeline board member during regression test (test_board_invite_still_works). Wait — actually that test only invited viewer@acuity.com, who was already a board member, so no new state.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After fixing the auth_routes.register $elemMatch bug, just re-run pytest /app/backend/tests/test_iteration21_invite_signup_search.py — should be 7/7. The single failing test creates fresh TEST_signup_<rand> emails so it is idempotent. Note that data-corruption from past runs ('invited_92fbc9@test.com' member) needs manual cleanup as listed in action_items.",
+  "rca of the issue": "Root cause: MongoDB array positional `$` operator is undefined when query filter has multiple top-level dotted-path conditions on the same array (e.g. `members.email` AND `members.status` as two separate keys). Mongo's $ uses the first array element matching the first condition encountered for that array path, which is not guaranteed to be the same element matching both conditions. Result: when 'TEST_signup_X@example.com' registers and the team has multiple members with status='invited' (5 in current DB), the $-positional update overwrites a different invited member (in this run, 'invited_92fbc9@test.com'). Reproduction: (1) login as owner, (2) POST /api/teams/{acuity_id}/invite {email: TEST_signup_<rand>@example.com}, (3) verify members[].email == TEST_signup_X has status='invited', (4) POST /api/auth/register {email: TEST_signup_X, password, name='Signup Tester'} returns 200, (5) GET /api/teams/{acuity_id} shows TEST_signup_X STILL status='invited' AND a different member (e.g. 'invited_92fbc9@test.com') corrupted to name='Signup Tester' status='active'. Mitigation: (a) replace the broken update_one filter in /app/backend/routes/auth_routes.py with `{\"name\": \"Acuity-Professional\", \"members\": {\"$elemMatch\": {\"email\": user_data.email, \"status\": \"invited\"}}}` so $ targets the matching elemMatch element; (b) one-time DB cleanup for any historically corrupted invited members."
+}

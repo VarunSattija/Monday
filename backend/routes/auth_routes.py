@@ -91,6 +91,35 @@ async def register(user_data: UserCreate):
             {"name": "Acuity-Professional"},
             {"$push": {"members": new_member}}
         )
+
+    # Flip any OTHER teams where this email was pre-invited (general purpose,
+    # covers future multi-team scenarios).
+    await db.teams.update_many(
+        {
+            "name": {"$ne": "Acuity-Professional"},
+            "members": {"$elemMatch": {"email": user_data.email, "status": "invited"}},
+        },
+        {"$set": {
+            "members.$.status": "active",
+            "members.$.user_id": user.id,
+            "members.$.name": user_data.name,
+            "members.$.avatar": user.avatar,
+            "members.$.joined_at": datetime.utcnow(),
+        }},
+    )
+
+    # Send welcome / signup confirmation email (best-effort)
+    try:
+        import os as _os
+        from routes.email_helper import send_email, build_signup_confirmation_email
+        app_url = _os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
+        subject, html = build_signup_confirmation_email(
+            user_data.name, app_url, was_invited=was_invited
+        )
+        await send_email(user_data.email, subject, html)
+    except Exception:
+        # Never block signup on email failure
+        pass
     
     # Create access token
     access_token = create_access_token(
@@ -102,6 +131,31 @@ async def register(user_data: UserCreate):
         "token_type": "bearer",
         "user": user.dict()
     }
+
+
+@router.get("/users/search")
+async def search_users(
+    q: str = "",
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    """Search registered users by name or email (for invite autocomplete)."""
+    q = (q or "").strip()
+    query = {"id": {"$ne": current_user["id"]}}
+    if q:
+        import re
+        rx = {"$regex": re.escape(q), "$options": "i"}
+        query["$or"] = [{"email": rx}, {"name": rx}]
+    users = await db.users.find(query, {"_id": 0, "hashed_password": 0, "totp_secret": 0, "totp_backup_codes": 0}).limit(limit).to_list(limit)
+    return [
+        {
+            "id": u["id"],
+            "email": u["email"],
+            "name": u.get("name", ""),
+            "avatar": u.get("avatar", ""),
+        }
+        for u in users
+    ]
 
 
 @router.post("/select-company")

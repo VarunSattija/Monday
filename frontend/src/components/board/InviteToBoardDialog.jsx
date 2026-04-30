@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserPlus, Crown, X, Search, Lock, Mail } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -19,9 +19,13 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
   const [boardData, setBoardData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchTimerRef = useRef(null);
 
   useEffect(() => {
     if (open && boardId) fetchMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, boardId]);
 
   const fetchMembers = async () => {
@@ -40,16 +44,50 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
     }
   };
 
-  const handleInvite = async () => {
-    if (!email.trim()) {
+  // Debounced user search
+  const searchUsers = useCallback(async (q) => {
+    try {
+      const res = await api.get(`/auth/users/search?q=${encodeURIComponent(q)}&limit=8`);
+      const memberIds = new Set(members.map((m) => m.id));
+      const filtered = res.data.filter((u) => !memberIds.has(u.id));
+      setSuggestions(filtered);
+    } catch (e) {
+      setSuggestions([]);
+    }
+  }, [members]);
+
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    clearTimeout(searchTimerRef.current);
+    if (!val.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setShowSuggestions(true);
+    searchTimerRef.current = setTimeout(() => searchUsers(val.trim()), 200);
+  };
+
+  const pickSuggestion = async (u) => {
+    setEmail(u.email);
+    setShowSuggestions(false);
+    // Immediately invite — matches monday.com's "click to add" UX
+    await handleInvite(u.email);
+  };
+
+  const handleInvite = async (overrideEmail) => {
+    const target = (overrideEmail || email).trim();
+    if (!target) {
       toast({ title: 'Error', description: 'Please enter an email address', variant: 'destructive' });
       return;
     }
     setInviting(true);
     try {
-      await api.post(`/boards/${boardId}/invite?email=${encodeURIComponent(email)}&role=member`);
-      toast({ title: 'Invited!', description: `Invitation sent to ${email}` });
+      await api.post(`/boards/${boardId}/invite?email=${encodeURIComponent(target)}&role=member`);
+      toast({ title: 'Invited!', description: `${target} has been added to this board` });
       setEmail('');
+      setSuggestions([]);
+      setShowSuggestions(false);
       fetchMembers();
       onInvite?.();
     } catch (error) {
@@ -87,27 +125,60 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
 
         <div className="px-6 pb-2">
           {/* Search & Invite */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search by name, team, or email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleInvite(); }}
-                className="pl-10"
-                data-testid="invite-email-input"
-              />
+          <div className="relative">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name or email address"
+                  value={email}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  onFocus={() => email && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleInvite(); }}
+                  className="pl-10"
+                  data-testid="invite-email-input"
+                />
+              </div>
+              <Button
+                onClick={() => handleInvite()}
+                disabled={inviting || !email.trim()}
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                data-testid="invite-send-btn"
+              >
+                <Mail className="h-4 w-4 mr-1.5" />
+                {inviting ? 'Sending...' : 'Invite'}
+              </Button>
             </div>
-            <Button
-              onClick={handleInvite}
-              disabled={inviting || !email.trim()}
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-              data-testid="invite-send-btn"
-            >
-              <Mail className="h-4 w-4 mr-1.5" />
-              {inviting ? 'Sending...' : 'Invite'}
-            </Button>
+
+            {/* Autocomplete suggestions */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto"
+                data-testid="invite-suggestions"
+              >
+                {suggestions.map((u) => (
+                  <button
+                    key={u.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickSuggestion(u)}
+                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-orange-50 text-left transition-colors"
+                    data-testid={`invite-suggestion-${u.id}`}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-600 text-white text-xs font-bold">
+                        {(u.name || u.email || '?').substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{u.name || u.email}</div>
+                      <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                    </div>
+                    <UserPlus className="h-4 w-4 text-orange-400" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Privacy */}

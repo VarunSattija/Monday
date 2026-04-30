@@ -151,3 +151,31 @@ def build_board_invite_email(inviter_name: str, board_name: str, app_url: str):
     </div>
     """
     return subject, html
+
+
+def build_signup_confirmation_email(user_name: str, app_url: str, was_invited: bool):
+    subject = "Welcome to Acuity Professional — your account is ready"
+    extra = (
+        "<p style='color: #4b5563; line-height: 1.6;'>You were invited to join — your teammates can now see you as an active member.</p>"
+        if was_invited else ""
+    )
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 24px 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Acuity Professional</h1>
+        </div>
+        <div style="background: white; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+            <h2 style="color: #1f2937; margin-top: 0;">Welcome, {user_name}!</h2>
+            <p style="color: #4b5563; line-height: 1.6;">Your Acuity Professional account has been created successfully.</p>
+            {extra}
+            <a href="{app_url}" style="display: inline-block; background: #f97316; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 16px 0;">
+                Open Acuity
+            </a>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">
+                If you didn't create this account, please ignore this email.
+            </p>
+        </div>
+    </div>
+    """
+    return subject, html
+
