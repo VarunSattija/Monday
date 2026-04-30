@@ -50,6 +50,12 @@
 
 ## Testing: Iteration 19 — Frontend 100% (8/8), no bugs.
 
+### Phase 17 (Apr 30, 2026)
+- **Identical hierarchy for invitees** — When a user is invited to a board, they're now auto-added to the workspace's member list, so they see the workspace + folders + boards in the SAME tree the owner has organized. Workspaces endpoint also lazy-backfills membership for legacy invitations. Sidebar's "Shared with me" section is now reserved only for true orphan shares (board whose workspace isn't visible to the user). Non-owner workspace members only see boards they own or were explicitly invited to (the workspace owner's other boards remain hidden).
+- **Number column customization** — New "Number format" item in any number column's header menu. Pick from £/$/€/%/none, choose decimals (auto/0–4), and symbol position (before/after — auto-set to "after" for percent). Live preview. Settings persist via PUT `/boards/{id}/columns/{cid}` with merge semantics.
+
+## Testing: Iteration 20 — Backend 100% (6/6 pytest), Frontend 100%, no bugs.
+
 
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
 ## Sender: Varun.sattija@acuityprofessional.com

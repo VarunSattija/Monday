@@ -464,7 +464,11 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
                   <button
                     key={u.v}
                     type="button"
-                    onClick={() => setNumUnit(u.v)}
+                    onClick={() => {
+                      setNumUnit(u.v);
+                      // Sensible default: percent always trails the number
+                      if (u.v === 'percent') setNumDirection('R');
+                    }}
                     className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
                       numUnit === u.v
                         ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
