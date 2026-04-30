@@ -74,8 +74,21 @@ async def get_workspace_boards(
     workspace_id: str,
     current_user: dict = Depends(get_current_user)
 ):
+    workspace = await db.workspaces.find_one({"id": workspace_id})
+    is_workspace_owner = workspace and workspace.get("owner_id") == current_user["id"]
+
     boards = await db.boards.find({"workspace_id": workspace_id}).to_list(1000)
-    return [Board(**board) for board in boards]
+    if is_workspace_owner:
+        # Owner sees everything in their workspace
+        return [Board(**board) for board in boards]
+
+    # Other workspace members only see boards they own or are explicitly invited to
+    user_id = current_user["id"]
+    visible = [
+        b for b in boards
+        if b.get("owner_id") == user_id or user_id in b.get("member_ids", [])
+    ]
+    return [Board(**board) for board in visible]
 
 
 @router.get("/{board_id}", response_model=Board)
@@ -413,6 +426,20 @@ async def invite_to_board(
             {"id": board_id},
             {"$push": {"member_ids": invited_user["id"]}}
         )
+
+    # Also add to the workspace member_ids so the invited user sees the
+    # workspace + folders + boards in the same hierarchy as the owner.
+    workspace_id = board.get("workspace_id")
+    if workspace_id:
+        await db.workspaces.update_one(
+            {
+                "id": workspace_id,
+                "member_ids": {"$ne": invited_user["id"]},
+                "owner_id": {"$ne": invited_user["id"]},
+            },
+            {"$addToSet": {"member_ids": invited_user["id"]}},
+        )
+
     # Create in-app notification for the invited user
     await create_notification(
         user_id=invited_user["id"],

@@ -3,6 +3,7 @@
 ## Test Users
 - User 1: testuser@acuity.com / TestPass123!
 - User 2: user2@acuity.com / TestPass123!
+- User 3 (invitee viewer): viewer@acuity.com / View123!
 
 ## Board
 - Pipeline Board ID: 80443bd5-2839-4909-955b-e13157def5eb

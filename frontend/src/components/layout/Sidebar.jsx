@@ -344,17 +344,24 @@ const Sidebar = ({ onOpenImport }) => {
           </div>
         </div>
 
-        {/* Shared Boards */}
-        {sharedBoards.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Shared with me</h3>
-            <div className="space-y-0.5">
-              {sharedBoards.map((board) => (
-                <BoardItem key={board.id} board={board} shared data-testid={`shared-board-${board.id}`} />
-              ))}
+        {/* Shared boards section - only show boards whose workspace is NOT in the user's workspace list (true orphans) */}
+        {(() => {
+          const knownWorkspaceIds = new Set(workspaces.map((w) => w.id));
+          const orphanedShared = sharedBoards.filter(
+            (b) => !knownWorkspaceIds.has(b.workspace_id)
+          );
+          if (orphanedShared.length === 0) return null;
+          return (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Shared with me</h3>
+              <div className="space-y-0.5">
+                {orphanedShared.map((board) => (
+                  <BoardItem key={board.id} board={board} shared data-testid={`shared-board-${board.id}`} />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

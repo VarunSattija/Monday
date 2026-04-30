@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoreVertical, Settings, Sparkles, Tag, MessageSquare, Filter, ArrowUpDown, ChevronDown, Copy, Plus, RefreshCw, Save, Pencil, Trash2, Lock, Unlock, ArrowDown, ArrowUp } from 'lucide-react';
+import { MoreVertical, Settings, Sparkles, Tag, MessageSquare, Filter, ArrowUpDown, ChevronDown, Copy, Plus, RefreshCw, Save, Pencil, Trash2, Lock, Unlock, ArrowDown, ArrowUp, Hash } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +43,12 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
   const [renameValue, setRenameValue] = useState(column.title);
   const [newType, setNewType] = useState(column.type);
   const [filterValue, setFilterValue] = useState('');
+
+  // Number format settings (used when column.type === 'numbers')
+  const [showNumberFormat, setShowNumberFormat] = useState(false);
+  const [numUnit, setNumUnit] = useState(column.settings?.unit || 'pound');
+  const [numDecimals, setNumDecimals] = useState(String(column.settings?.decimals ?? 'auto'));
+  const [numDirection, setNumDirection] = useState(column.settings?.direction || 'L');
 
   const columnTypes = [
     { value: 'text', label: 'Text' },
@@ -162,6 +168,25 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
     }
   };
 
+  const handleSaveNumberFormat = async () => {
+    try {
+      const decimalsVal = numDecimals === 'auto' ? 'auto' : parseInt(numDecimals, 10);
+      await api.put(`/boards/${boardId}/columns/${column.id}`, {
+        settings: {
+          ...(column.settings || {}),
+          unit: numUnit,
+          decimals: decimalsVal,
+          direction: numDirection,
+        },
+      });
+      toast({ title: 'Saved', description: 'Number format updated' });
+      setShowNumberFormat(false);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to update format', variant: 'destructive' });
+    }
+  };
+
   const handleSort = (direction) => {
     if (onSort) onSort(column.id, direction);
   };
@@ -192,6 +217,20 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
             <DropdownMenuItem onClick={() => { setLabels(column.options || []); setShowEditLabels(true); }}>
               <Settings className="h-4 w-4 mr-2" />
               Edit labels
+            </DropdownMenuItem>
+          )}
+          {column.type === 'numbers' && (
+            <DropdownMenuItem
+              onClick={() => {
+                setNumUnit(column.settings?.unit || 'pound');
+                setNumDecimals(String(column.settings?.decimals ?? 'auto'));
+                setNumDirection(column.settings?.direction || 'L');
+                setShowNumberFormat(true);
+              }}
+              data-testid={`number-format-${column.id}`}
+            >
+              <Hash className="h-4 w-4 mr-2" />
+              Number format
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => setShowPermissions(true)}>
@@ -400,6 +439,117 @@ const ColumnSettingsMenu = ({ column, boardId, onUpdate, onDelete, onSort, onFil
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowPermissions(false)}>Cancel</Button>
               <Button className="bg-gradient-to-r from-amber-500 to-orange-600" onClick={handleSavePermissions}>Save Permissions</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Number Format Dialog */}
+      <Dialog open={showNumberFormat} onOpenChange={setShowNumberFormat}>
+        <DialogContent className="max-w-md" data-testid="number-format-dialog">
+          <DialogHeader>
+            <DialogTitle>Number format - {column.title}</DialogTitle>
+            <DialogDescription>Choose how numbers are displayed in this column.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 mt-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wide text-gray-500 mb-2 block">Unit</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { v: 'pound', glyph: '£', name: 'Pound' },
+                  { v: 'dollar', glyph: '$', name: 'Dollar' },
+                  { v: 'euro', glyph: '€', name: 'Euro' },
+                  { v: 'percent', glyph: '%', name: 'Percent' },
+                  { v: 'none', glyph: '—', name: 'None' },
+                ].map((u) => (
+                  <button
+                    key={u.v}
+                    type="button"
+                    onClick={() => setNumUnit(u.v)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                      numUnit === u.v
+                        ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                        : 'border-gray-200 hover:border-orange-300'
+                    }`}
+                    data-testid={`number-unit-${u.v}`}
+                  >
+                    <span className="text-xl font-semibold text-gray-800">{u.glyph}</span>
+                    <span className="text-xs text-gray-500">{u.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wide text-gray-500 mb-2 block">Decimals</Label>
+              <Select value={numDecimals} onValueChange={setNumDecimals}>
+                <SelectTrigger data-testid="number-decimals-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (smart)</SelectItem>
+                  <SelectItem value="0">0 (integer)</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {numUnit !== 'none' && (
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-gray-500 mb-2 block">Symbol position</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNumDirection('L')}
+                    className={`p-2 rounded-lg border text-sm ${
+                      numDirection === 'L' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+                    }`}
+                    data-testid="number-direction-left"
+                  >
+                    Before number ({{ pound: '£', dollar: '$', euro: '€', percent: '%', none: '' }[numUnit]}1,234)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNumDirection('R')}
+                    className={`p-2 rounded-lg border text-sm ${
+                      numDirection === 'R' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+                    }`}
+                    data-testid="number-direction-right"
+                  >
+                    After number (1,234{{ pound: '£', dollar: '$', euro: '€', percent: '%', none: '' }[numUnit]})
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Preview */}
+            <div className="bg-gray-50 border rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-500 mb-1">Preview</p>
+              <p className="text-2xl font-mono tabular-nums" data-testid="number-format-preview">
+                {(() => {
+                  const symbols = { pound: '£', dollar: '$', euro: '€', percent: '%', none: '' };
+                  const sym = symbols[numUnit] || '';
+                  const d = numDecimals === 'auto' ? 2 : parseInt(numDecimals, 10);
+                  const formatted = (1234.567).toLocaleString('en-GB', {
+                    minimumFractionDigits: d,
+                    maximumFractionDigits: d,
+                  });
+                  return numDirection === 'L' ? `${sym}${formatted}` : `${formatted}${sym}`;
+                })()}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNumberFormat(false)}>Cancel</Button>
+              <Button
+                className="bg-gradient-to-r from-amber-500 to-orange-600"
+                onClick={handleSaveNumberFormat}
+                data-testid="number-format-save-btn"
+              >
+                Save
+              </Button>
             </div>
           </div>
         </DialogContent>

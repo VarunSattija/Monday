@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 20: validated workspace-sharing UX (invitee sees IDENTICAL workspace/folder hierarchy as owner, no separate 'Shared with me' section) and number-format customization on existing columns (£/$/€/%/none, decimals, symbol position). Both backend (6/6 pytest passed) and frontend flows verified end-to-end. Reset state cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "tests_executed": {
+    "backend_pytest": {
+      "result": "PASS 6/6",
+      "file": "/app/backend/tests/test_iteration20_share_hierarchy_numfmt.py",
+      "details": "TestWorkspaceSharing: viewer_sees_owner_workspace, viewer_sees_only_invited_boards (Pipeline only) [filtering for non-owners works], owner_sees_workspace_boards. TestNumberColumnSettings: initial_column_present (type='numbers'), put_settings_percent_merges (verified existing keys preserved; only unit/decimals/direction merged), put_settings_pound_resets (back to {pound, auto, L})."
+    },
+    "frontend_invitee_sharing": {
+      "result": "PASS",
+      "details": "Logged in as viewer@acuity.com / View123! - sidebar workspace dropdown shows BOTH 'Test User\\'s Workspace' (owner's) and 'Test Viewer\\'s Workspace'. Active workspace 'Test User\\'s Workspace' renders Pipeline Group folder + Pipeline board (identical hierarchy as owner sees). NO 'Shared with me' section duplicate. Recent Boards shows Pipeline."
+    },
+    "frontend_number_format_dialog": {
+      "result": "PASS",
+      "details": "Opened Pipeline board as testuser@acuity.com. data-testid='column-menu-c2593e9e-71d8-403e-8834-6e5d4789bdd9' present; clicked menu, found data-testid='number-format-{cid}' item; opened dialog with data-testid='number-format-dialog'. All 5 unit cards present (number-unit-pound|dollar|euro|percent|none). number-decimals-select shows Auto/0/1/2/3/4. number-direction-left/right both present, save btn present. Selecting Pound + decimals=2 + Before-position renders preview '£1,234.57' as required."
+    },
+    "frontend_save_persists_via_api": {
+      "result": "PASS",
+      "details": "Saving with percent + decimals=1 + position=Right fired PUT https://.../api/boards/80443bd5-2839-4909-955b-e13157def5eb/columns/c2593e9e-71d8-403e-8834-6e5d4789bdd9 with body {\"settings\":{\"unit\":\"percent\",\"decimals\":1,\"direction\":\"R\"}}. Response 200. Reset to {pound, auto, L} via API after testing."
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration20_share_hierarchy_numfmt.py",
+    "/app/test_reports/pytest/iter20.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "board_routes.py invite endpoint backfill is good, but consider also adding the inviter to workspace.member_ids on legacy boards where this hasn't happened yet (currently relies on workspace_routes.get_workspaces lazy backfill on each call - works but makes that endpoint mutate db on every read). Consider a one-shot migration script.",
+    "Filtering get_workspace_boards for non-owners loops over all workspace boards and intersects with invited list; for very large workspaces this could be O(n) per request - not blocking now but flag for future.",
+    "ColumnSettingsMenu.jsx number-format save uses PUT /columns/{cid} with partial settings - good. UI should also disable Save while a PUT is in flight to prevent double-submit (cosmetic).",
+    "Cell rendering for percent direction='R' shows '1,234.6%' correctly, but for 'L' direction with percent it would show '%1,234.6' which is unconventional - consider auto-locking percent to direction R, or at least documenting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration20_share_hierarchy_numfmt.py",
+    "/app/memory/test_credentials.md (added viewer credentials)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100%"},
+  "test_credentials": "testuser@acuity.com / TestPass123! (owner); viewer@acuity.com / View123! (invitee)",
+  "seed_data_creation": "None new. Re-used Pipeline board / Pipeline Group folder. End state: 'Exc. Proc' column reset to {unit:'pound', decimals:'auto', direction:'L'}. viewer@acuity.com retained as workspace member of Test User's Workspace per instructions.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Board route is /boards/{id} (NOT /board/{id}). Login persists token in localStorage as 'access_token'. ColumnSettingsMenu trigger testid pattern: column-menu-{column_id}; number-format opener: number-format-{column_id}; dialog testid: number-format-dialog with children number-unit-{pound|dollar|euro|percent|none}, number-decimals-select, number-direction-left|right, number-format-save-btn. Sidebar 'Shared with me' section is now conditional - only renders for orphan board shares (workspace not visible to user)."
+}
