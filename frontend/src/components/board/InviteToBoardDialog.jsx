@@ -24,7 +24,13 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
   const searchTimerRef = useRef(null);
 
   useEffect(() => {
-    if (open && boardId) fetchMembers();
+    if (open && boardId) {
+      fetchMembers();
+      // Prefetch platform users so the user sees a "share with team" list
+      // right away (no need to type).
+      searchUsers('');
+      setShowSuggestions(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, boardId]);
 
@@ -47,7 +53,7 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
   // Debounced user search
   const searchUsers = useCallback(async (q) => {
     try {
-      const res = await api.get(`/auth/users/search?q=${encodeURIComponent(q)}&limit=8`);
+      const res = await api.get(`/auth/users/search?q=${encodeURIComponent(q)}&limit=12`);
       const memberIds = new Set(members.map((m) => m.id));
       const filtered = res.data.filter((u) => !memberIds.has(u.id));
       setSuggestions(filtered);
@@ -56,16 +62,17 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
     }
   }, [members]);
 
+  // Re-filter suggestions when members list loads/changes
+  useEffect(() => {
+    if (open) searchUsers(email);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members]);
+
   const handleEmailChange = (val) => {
     setEmail(val);
     clearTimeout(searchTimerRef.current);
-    if (!val.trim()) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
     setShowSuggestions(true);
-    searchTimerRef.current = setTimeout(() => searchUsers(val.trim()), 200);
+    searchTimerRef.current = setTimeout(() => searchUsers(val.trim()), 150);
   };
 
   const pickSuggestion = async (u) => {
@@ -119,8 +126,8 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
       </DialogTrigger>
       <DialogContent className="max-w-lg p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>Invite to this board</DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">Subscribe people from your organization</p>
+          <DialogTitle>Share this board</DialogTitle>
+          <p className="text-sm text-gray-500 mt-1">Pick a teammate below or type their email to invite them</p>
         </DialogHeader>
 
         <div className="px-6 pb-2">
@@ -130,11 +137,11 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by name or email address"
+                  placeholder="Search by name or email"
                   value={email}
                   onChange={(e) => handleEmailChange(e.target.value)}
-                  onFocus={() => email && setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleInvite(); }}
                   className="pl-10"
                   data-testid="invite-email-input"
@@ -147,16 +154,19 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
                 data-testid="invite-send-btn"
               >
                 <Mail className="h-4 w-4 mr-1.5" />
-                {inviting ? 'Sending...' : 'Invite'}
+                {inviting ? 'Sending...' : 'Share'}
               </Button>
             </div>
 
             {/* Autocomplete suggestions */}
             {showSuggestions && suggestions.length > 0 && (
               <div
-                className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto"
+                className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto"
                 data-testid="invite-suggestions"
               >
+                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-50 border-b">
+                  {email.trim() ? 'Matching people' : 'Your team'}
+                </div>
                 {suggestions.map((u) => (
                   <button
                     key={u.id}

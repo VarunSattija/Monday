@@ -10,6 +10,8 @@ db = get_db()
 
 @router.post("/register")
 async def register(user_data: UserCreate):
+    # Normalize email to lowercase so lookups (login, invite) are consistent.
+    user_data.email = (user_data.email or "").strip().lower()
     # Check if user exists
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
@@ -215,6 +217,8 @@ async def select_company(
 
 @router.post("/login")
 async def login(credentials: UserLogin):
+    # Case-insensitive email lookup
+    credentials.email = (credentials.email or "").strip().lower()
     # Find user
     user_data = await db.users.find_one({"email": credentials.email})
     if not user_data:

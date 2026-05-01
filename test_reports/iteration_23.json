@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 23 — Email case-insensitivity (register/login/board-invite) + 'Share this board' UX. Backend: 7/7 pytest pass. Frontend: dialog renders 'Share this board' + 'Share' button, suggestions appear on open with 'Your team' header, header switches to 'Matching people' on typing, click-to-share works (toast + member added). TeamPage shows pragati.y & parminder.s under Active Members (24), not Pending (7).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Share this board dialog", "issues": ["DialogContent missing aria-describedby (a11y warning emitted by Radix). Non-blocking but should add a Description for screen readers."]}
+    ]
+  },
+  "tests_executed": {
+    "backend_pytest": {
+      "file": "/app/backend/tests/test_iteration23_email_case_insensitive.py",
+      "result": "PASS 7/7",
+      "junit": "/app/test_reports/pytest/iter23.xml",
+      "passing": [
+        "TestRegisterLowercase::test_register_stores_lowercase — Mixed.Case@Example.COM stored as lowercase; login works with mixed/lower/UPPER variants",
+        "TestBoardInviteCaseInsensitive::test_invite_mixed_case_succeeds[Pragati.Y@acuityprofessional.com] -> 200",
+        "TestBoardInviteCaseInsensitive::test_invite_mixed_case_succeeds[PARMINDER.S@ACUITYPROFESSIONAL.COM] -> 200",
+        "TestBoardInviteCaseInsensitive::test_invite_mixed_case_succeeds[pragati.y@acuityprofessional.com] -> 200",
+        "TestBoardInviteCaseInsensitive::test_invite_unknown_email_400 — 'ghost_zzz@example.com' -> 400 with detail 'not registered'",
+        "TestBoardInviteCaseInsensitive::test_invitee_added_to_board_member_ids — pragati.y user_id present in Pipeline board.member_ids",
+        "TestRegisterFlipsInvitedToActive::test_register_flips_only_target_invitee — Iteration-21 $elemMatch regression: target flipped invited→active, all sibling members unchanged (status + user_id intact)"
+      ]
+    },
+    "frontend_playwright": {
+      "result": "PASS",
+      "details": {
+        "trigger_button": "data-testid='invite-board-btn' text='Invite' (unchanged — correct per spec)",
+        "dialog_title": "'Share this board' (rebrand confirmed)",
+        "primary_button": "data-testid='invite-send-btn' text='Share' (rebrand confirmed)",
+        "suggestions_on_open": "data-testid='invite-suggestions' visible immediately, header='Your team', 10 suggestions, current user (testuser@acuity.com) excluded",
+        "filter_typing": "Typing 'admin' switches header to 'Matching people' with 1 filtered match",
+        "filter_clear": "Clearing input reverts header back to 'Your team'",
+        "click_to_share": "Clicking suggestion for uitest_5320@acuity.com fired POST /api/boards/{id}/invite, success toast 'Invited! uitest_5320@acuity.com has been added to this board' shown, member appeared in invited list",
+        "team_page_active_block": "Active Members (24) section contains pragati.y@acuityprofessional.com AND parminder.s@acuityprofessional.com",
+        "team_page_pending_block": "Pending Invitations (7) section does NOT contain pragati.y or parminder.s — backfill verified",
+        "team_page_stats": "Total=31, Active=24, Invited=7, Removed=3"
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration23_email_case_insensitive.py",
+    "/app/test_reports/pytest/iter23.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Add aria-describedby / DialogDescription to Share this board dialog to silence Radix a11y warning (not user-visible).",
+    "OPTIONAL: Inviting an email that's already a board member currently still hits the API and returns 200 (idempotent push is a no-op). Consider client-side short-circuit for clarity, but harmless.",
+    "OPTIONAL CLEANUP: Test artifact users (uitest_, autotest_, test_outsider_, TEST_*) created across iterations are now lowercased — they remain in the users collection. Safe to leave; can be purged via DELETE /api/auth/users/delete-by-domain in a maintenance window.",
+    "REVERT NOTE: During click-to-share testing, uitest_5320@acuity.com was added to Pipeline board and then removed via remove-member-{id}. Pipeline board.member_ids should be back to its pre-test state. Pragati/Parminder were already members from previous iterations (per spec — DO NOT remove)."
+  ],
+  "critical_code_review_comments": [
+    "auth_routes.register/login: email normalization via .strip().lower() — correct, but the schema (UserCreate) does not enforce EmailStr pre-normalization. Acceptable since handler normalizes, but adding a Pydantic validator would prevent any future bypass route.",
+    "board_routes.invite_to_board: case-insensitive regex with re.escape — correct. Anchored ^...$ so no partial matches. Good.",
+    "board_routes.invite_to_board: still calls send_email(email, ...) with the inviter-typed casing rather than invited_user['email']. Cosmetically the recipient sees their own typed casing in From-header rendering. Minor — recommend using invited_user['email'] for consistency.",
+    "auth_routes.register: $elemMatch fix from Iteration 21 verified again — no sibling corruption (TestRegisterFlipsInvitedToActive PASS).",
+    "InviteToBoardDialog.jsx: searchUsers depends on `members` via useCallback closure; the second useEffect re-runs searchUsers(email) when members change — correct, prevents stale member exclusion. Good React-hook discipline.",
+    "InviteToBoardDialog.jsx: setShowSuggestions(false) on blur with a 200ms timeout — works, but pickSuggestion uses onMouseDown.preventDefault() to avoid blur race. Good.",
+    "InviteToBoardDialog.jsx: when typed query matches an existing board member only, suggestions become empty and the dropdown collapses (data-testid='invite-suggestions' not in DOM). Acceptable — typing 'pragati' on Pipeline board returned 0 because pragati is already a member. UX could be improved with an 'already a member' inline hint.",
+    "auth_routes.users/search: also lowercases query implicitly via $regex options 'i' — consistent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration23_email_case_insensitive.py (new)",
+    "/app/test_reports/iteration_23.json (new)",
+    "/app/test_reports/pytest/iter23.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all checks pass)"},
+  "test_credentials": "testuser@acuity.com / TestPass123! — unchanged. /app/memory/test_credentials.md NOT modified.",
+  "seed_data_creation": "TestRegisterLowercase creates one TEST_Mix.Case_<rand>@example.com user (lowercased). TestRegisterFlipsInvitedToActive creates one TEST_reg_<rand>@example.com user. Both are harmless idempotent test artifacts. Click-share Playwright test added uitest_5320@acuity.com to Pipeline board.member_ids and immediately removed it — no net change.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 23 clean. Re-run /app/backend/tests/test_iteration23_email_case_insensitive.py for regression. Email normalization is enforced at register/login; board invite uses case-insensitive ^...$ regex. Pragati and Parminder are confirmed Active members of Acuity-Professional team and member_ids of Pipeline board (80443bd5-...). Do NOT add Pydantic EmailStr without preserving the .lower() normalization. Iteration 21 $elemMatch regression still passes.",
+  "rca_of_the_issue": "Original bug: case-sensitive email matching at three layers — (a) auth/register stored email verbatim, (b) auth/login used exact-match find, (c) board invite did exact-match find. Users typed 'Pragati.Y' in invite which never matched stored 'pragati.y'. Fixes: (1) register & login now strip+lowercase before storing/lookup, (2) board invite uses ^re.escape(email_lower)$ with $options:'i' regex, (3) backfill script lowercased existing users + Acuity-Professional team members. All three layers validated."
+}

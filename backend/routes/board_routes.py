@@ -415,8 +415,12 @@ async def invite_to_board(
     inviter_name = current_user.get("name", "Someone")
     board_name = board.get("name", "a board")
 
-    # Find user by email - MUST be a registered user on the platform
-    invited_user = await db.users.find_one({"email": email})
+    # Case-insensitive email lookup (users may type 'John.Doe@...' when the
+    # account was registered as 'john.doe@...').
+    import re
+    email_norm = (email or "").strip().lower()
+    email_rx = {"$regex": f"^{re.escape(email_norm)}$", "$options": "i"}
+    invited_user = await db.users.find_one({"email": email_rx})
     if not invited_user:
         raise HTTPException(status_code=400, detail="This email is not registered on the platform. The person must sign up first.")
     
