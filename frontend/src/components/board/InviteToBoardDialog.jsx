@@ -125,8 +125,12 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" data-testid="invite-board-btn">
-          <UserPlus className="h-4 w-4 mr-2" /> Invite
+        <Button
+          size="sm"
+          className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-sm"
+          data-testid="invite-board-btn"
+        >
+          <UserPlus className="h-4 w-4 mr-2" /> Share
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg p-0 overflow-hidden">
