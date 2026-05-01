@@ -56,6 +56,19 @@
 
 ## Testing: Iteration 20 — Backend 100% (6/6 pytest), Frontend 100%, no bugs.
 
+### Phase 18 (Apr 30, 2026)
+- **Auto-active on signup (all teams)** — When an invited user registers, the team record flips from `invited` → `active` using MongoDB `$elemMatch` (fixes a positional-operator bug that could corrupt the wrong member). Works for every team the email was invited to.
+- **Signup confirmation email** — New template sent on every successful register; differentiates "was invited" vs "new signup".
+- **`GET /api/auth/users/search`** — Authenticated user/email search endpoint, excludes caller, case-insensitive regex match, default limit 10.
+- **Invite-to-board autocomplete** — Typing in the email field now shows a dropdown of existing platform users (name + email + avatar). Clicking a result invites them immediately.
+
+### Phase 19 (May 1, 2026)
+- **Activity feed: real names, not UUIDs** — Automation engine now stores the source group's NAME in `old_value` (was storing the UUID). Historical corrupted records were backfilled.
+- **Comments are compliance-locked** — Delete button removed from UI; `DELETE /api/updates/{id}` returns `403 Compliance` for all callers. Dead `handleDeleteComment` also removed.
+- **Monday.com-style table** — Tighter density (text-xs body, text-[11px] headers, py-1.5 padding). Item column + checkbox are **sticky-left** during horizontal scroll with a group-color accent bar visible beside every item. Group title bar is **sticky-top + sticky-left** so the group name + count remain on-screen even when scrolling far right.
+
+## Testing: Iteration 22 — Backend 100% (4/4 pytest), Frontend 100% (9/9 checks), no bugs.
+
 
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
 ## Sender: Varun.sattija@acuityprofessional.com

@@ -181,16 +181,6 @@ const ItemDetailDialog = ({ item, open, onClose }) => {
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    try {
-      await api.delete(`/updates/${commentId}`);
-      setComments(comments.filter(c => c.id !== commentId));
-      toast({ title: 'Comment deleted' });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to delete comment', variant: 'destructive' });
-    }
-  };
-
   if (!open || !item) return null;
 
   return (
