@@ -88,17 +88,22 @@ const InviteToBoardDialog = ({ boardId, onInvite }) => {
       toast({ title: 'Error', description: 'Please enter an email address', variant: 'destructive' });
       return;
     }
+    // Defensive: normalize on the client too so older deployed backends still match.
+    const normalized = target.toLowerCase();
     setInviting(true);
     try {
-      await api.post(`/boards/${boardId}/invite?email=${encodeURIComponent(target)}&role=member`);
-      toast({ title: 'Invited!', description: `${target} has been added to this board` });
+      await api.post(`/boards/${boardId}/invite?email=${encodeURIComponent(normalized)}&role=member`);
+      toast({ title: 'Shared', description: `${target} has been added to this board` });
       setEmail('');
-      setSuggestions([]);
       setShowSuggestions(false);
       fetchMembers();
       onInvite?.();
     } catch (error) {
-      toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to send invitation', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Failed to share board',
+        variant: 'destructive',
+      });
     } finally {
       setInviting(false);
     }
