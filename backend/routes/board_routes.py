@@ -455,16 +455,17 @@ async def invite_to_board(
         actor_name=inviter_name,
     )
     
-    # Send email notification
+    # Send email notification — use the invitee's stored (normalized) email
+    canonical_email = invited_user["email"]
     app_url = os.environ.get("APP_URL", "https://acuity-team-hub.preview.emergentagent.com")
     subject, html = build_board_invite_email(inviter_name, board_name, f"{app_url}/boards/{board_id}")
-    await send_email(email, subject, html)
+    await send_email(canonical_email, subject, html)
 
     # Also store the invitation for tracking
     invitation = {
         "id": str(uuid.uuid4()),
         "board_id": board_id,
-        "email": email,
+        "email": canonical_email,
         "role": role,
         "invited_by": current_user["id"],
         "invited_at": datetime.utcnow(),

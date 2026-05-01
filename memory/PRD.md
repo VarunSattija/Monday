@@ -69,6 +69,17 @@
 
 ## Testing: Iteration 22 — Backend 100% (4/4 pytest), Frontend 100% (9/9 checks), no bugs.
 
+### Phase 20 (May 1, 2026) — Collaboration fix
+- **Root cause:** Board invite failed with "not registered" when the inviter typed an email whose casing differed from what the invitee used to register (e.g. `Pragati.Y@...` vs stored `pragati.y@...`). Also caused downstream "Invited" badges to linger because team-member lookups missed.
+- **Fixes:**
+  - Register & login now normalize email to `.strip().lower()`.
+  - Board invite lookup uses anchored case-insensitive regex.
+  - Downstream email/invitation record uses the canonical lowercase email.
+  - Backfilled 8 users + 1 team's member emails to lowercase.
+- **UX:** Invite-to-board dialog rebranded as "Share this board" with a "Share" primary button. Suggestions panel opens pre-populated with the full team ("Your team" header); typing filters into "Matching people". One click on any teammate shares the board with them — no typing needed.
+
+## Testing: Iteration 23 — Backend 100% (7/7 pytest), Frontend 100%, no bugs.
+
 
 ## Email: Awaiting AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in backend/.env
 ## Sender: Varun.sattija@acuityprofessional.com
