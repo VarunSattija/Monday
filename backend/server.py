@@ -29,6 +29,11 @@ db = client[os.environ['DB_NAME']]
 # Create the main app without a prefix
 app = FastAPI()
 
+# Kubernetes liveness/readiness probe — must be at root (no /api prefix).
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
