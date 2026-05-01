@@ -51,6 +51,8 @@ async def execute_action(automation: dict, item_id: str, board_id: str, action: 
         # Log the automation action
         target_group = await db.groups.find_one({"id": target_group_id})
         group_name = target_group.get("title", "Unknown") if target_group else "Unknown"
+        old_group = await db.groups.find_one({"id": old_group_id}) if old_group_id else None
+        old_group_name = old_group.get("title", "") if old_group else ""
         await log_activity(
             board_id=board_id,
             user_id="system",
@@ -58,7 +60,7 @@ async def execute_action(automation: dict, item_id: str, board_id: str, action: 
             action="moved",
             item_name=item.get("name", ""),
             column_name="Group",
-            old_value=old_group_id or "",
+            old_value=old_group_name,
             new_value=group_name,
             item_id=item_id,
         )

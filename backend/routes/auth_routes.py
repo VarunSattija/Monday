@@ -65,9 +65,14 @@ async def register(user_data: UserCreate):
     )
     
     if was_invited:
-        # Update existing invited entry to active
+        # Update existing invited entry to active — use $elemMatch so the
+        # positional `$` targets the right member (multi-condition array
+        # filters on dotted paths are not guaranteed to match the same element).
         await db.teams.update_one(
-            {"name": "Acuity-Professional", "members.email": user_data.email, "members.status": "invited"},
+            {
+                "name": "Acuity-Professional",
+                "members": {"$elemMatch": {"email": user_data.email, "status": "invited"}},
+            },
             {"$set": {
                 "members.$.status": "active",
                 "members.$.user_id": user.id,

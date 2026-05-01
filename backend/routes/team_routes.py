@@ -375,7 +375,10 @@ async def join_team_via_link(
     
     if was_invited:
         await db.teams.update_one(
-            {"id": team["id"], "members.email": current_user["email"], "members.status": "invited"},
+            {
+                "id": team["id"],
+                "members": {"$elemMatch": {"email": current_user["email"], "status": "invited"}},
+            },
             {"$set": {
                 "members.$.status": "active",
                 "members.$.user_id": current_user["id"],

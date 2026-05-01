@@ -1,0 +1,67 @@
+{
+  "summary": "Iteration 22: full backend+frontend validation of (1) activity moved old_value=group NAME, (2) compliance-locked DELETE /api/updates/{id} -> 403, (3) TableView smaller monday.com-style fonts, (4) sticky Item column + group header with color accent on horizontal scroll, (5) delete-comment UI removed, (6) Iteration 21 $elemMatch regression. All 4 pytest tests PASS (4/4). All 9 Playwright checks PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": {
+    "backend_pytest": {
+      "file": "/app/backend/tests/test_iteration22_activity_comments_sticky.py",
+      "result": "PASS 4/4",
+      "junit": "/app/test_reports/pytest/iter22.xml",
+      "passing": [
+        "TestActivityMovedOldValueIsName::test_no_moved_activity_uses_uuid_as_old_value (GET /api/activity/board/{pipeline} -> all action=='moved' entries have old_value that is NOT a UUID hex)",
+        "TestDeleteUpdateForbidden::test_delete_returns_403_for_any_id (random UUID -> 403 + detail contains 'compliance')",
+        "TestDeleteUpdateForbidden::test_delete_returns_403_on_real_update (real comment id -> 403; GET /api/updates/item/{id} still returns the comment = no data loss)",
+        "TestRegisterFlipElemMatchRegression::test_register_flips_only_target_invitee (invite TEST_reg_<rand>@example.com, register same email, verify target.status=='active' AND all OTHER members unchanged in status+name+user_id -> $elemMatch fix verified)"
+      ]
+    },
+    "frontend_playwright": {
+      "result": "PASS",
+      "details": {
+        "login": "testuser@acuity.com -> /workspaces OK; Pipeline link opens /boards/80443bd5-... with 151 item rows rendered",
+        "smaller_fonts": "First row contains 51 .text-xs cells; page has 156 .text-[11px] header labels -> monday.com density confirmed",
+        "horizontal_scroll_sticky_item": "scrollLeft=600 applied; first item row still shows .sticky.left-0 checkbox cell with border-left='3px solid rgb(87,155,252)' (group color accent) and .sticky.left-8 name cell width=224px at left=288 -> pinned",
+        "group_header_sticky": "Group row top=170 (pinned at top while scrolling), border-left='4px solid rgb(87,155,252)', inner chevron .sticky.left-0 AND title .sticky.left-8 both present -> group title stays visible during horizontal scroll",
+        "delete_comment_removed": "ItemDetailDialog opened on item with 3 existing comments: querySelectorAll('[data-testid^=delete-comment-]').length=0 and no lucide-trash-2 icons inside dialog -> Delete fully removed from UI",
+        "regression_select_all": "select-all-<gid> click -> 50 item checkboxes become data-state=checked (ITEMS_PER_PAGE=50 cap)",
+        "regression_group_title": "group-title-<gid> element present",
+        "regression_invite_autocomplete": "invite-board-btn -> invite-email-input visible; typing 'acuity' yields 7 invite-suggestion-<userId> options (matches iteration 21 result)"
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration22_activity_comments_sticky.py",
+    "/app/test_reports/pytest/iter22.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup: ItemDetailDialog.jsx still contains dead code 'handleDeleteComment' (lines 184-192) despite the UI button being removed and backend returning 403. Safe to delete the function to avoid confusion.",
+    "OPTIONAL: Iteration 22 backend DELETE /api/updates/{id} short-circuits to 403 BEFORE verifying the update exists or that the user owns it. This is intentional per compliance, but you may want to add an audit log entry capturing blocked delete attempts."
+  ],
+  "critical_code_review_comments": [
+    "update_routes.delete_update: good — compliance short-circuit is explicit and documented. No auth/ownership bypass risk because the route still requires get_current_user.",
+    "automation_engine move action: correctly resolves old_group_id -> old_group.title before log_activity(old_value=old_group_name). Fallback to empty string when old_group missing is acceptable.",
+    "auth_routes.register (Iteration 21 fix): $elemMatch on both update_one (Acuity-Professional) and update_many (other teams) — verified no other member corruption in pytest.",
+    "TableView.jsx: sticky left-0 and left-8 with bg-white/bg-orange-50 backgrounds correctly prevent content bleed-through on horizontal scroll. Group header also uses sticky top-0 z-20 plus inner sticky left-0/left-8 — layered stickiness works.",
+    "TableView.jsx (663 lines): approaching the 700-line threshold; consider splitting BoardToolbar bulk-actions, row renderer, and group header renderer into sub-components for maintainability.",
+    "ItemDetailDialog.jsx: dead function handleDeleteComment remains; small cleanup. No other deletion affordance exists on comment rows — good.",
+    "TableView pagination: ITEMS_PER_PAGE=50 means select-all only selects the first 50 of 58; UX-minor — user must 'show more' before select-all covers the whole group."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration22_activity_comments_sticky.py (new)",
+    "/app/test_reports/iteration_22.json (new)",
+    "/app/test_reports/pytest/iter22.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (9/9 checks)"},
+  "test_credentials": "testuser@acuity.com / TestPass123!; viewer@acuity.com / View123! — unchanged",
+  "seed_data_creation": "Each pytest run of TestRegisterFlipElemMatchRegression creates a fresh TEST_reg_<10hex>@example.com user in users collection and Acuity-Professional team (status=active). These are harmless idempotent test artifacts.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 22 is clean. Backend pytest file at /app/backend/tests/test_iteration22_activity_comments_sticky.py can be re-run for regression. Activity 'moved' backfill confirmed — no UUID strings in old_value across Pipeline board. Sticky column behavior verified at scrollLeft=600. DELETE update route is intentionally locked to 403 regardless of caller — do not try to unit-test delete success.",
+  "rca of the issue": "No new RCA required. All six tasks of Iteration 22 implemented correctly and verified by automated tests."
+}

@@ -402,12 +402,15 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
     const allChecked = gItemIds.length > 0 && gItemIds.every(id => selectedItems.has(id));
 
     return (
-      <div className="flex items-center bg-gray-50/80 border-b border-gray-200" style={{ borderLeft: `4px solid ${groupColor || '#e5e7eb'}` }}>
-        <div className="w-10 flex-shrink-0 flex items-center justify-center">
+      <div className="flex items-center bg-gray-50/80 border-b border-gray-200 sticky top-0 z-30">
+        <div
+          className="w-8 flex-shrink-0 flex items-center justify-center sticky left-0 z-30 bg-gray-50/95 backdrop-blur"
+          style={{ borderLeft: `3px solid ${groupColor || '#e5e7eb'}` }}
+        >
           <Checkbox checked={allChecked} onCheckedChange={() => groupId ? selectAllInGroup(groupId) : null}
-            className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" data-testid={`select-all-${groupId || 'global'}`} />
+            className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 h-3.5 w-3.5" data-testid={`select-all-${groupId || 'global'}`} />
         </div>
-        <div className="w-64 flex-shrink-0 px-4 py-2 font-medium text-xs text-gray-500 uppercase tracking-wide border-r border-gray-200">
+        <div className="w-56 flex-shrink-0 px-2 py-1.5 font-medium text-[11px] text-gray-500 uppercase tracking-wide border-r border-gray-200 sticky left-8 z-30 bg-gray-50/95 backdrop-blur">
           Item
         </div>
         {visibleColumns.map((column) => (
@@ -421,9 +424,9 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
             onDrop={(e) => handleColDrop(e, column.id)}
             onDragEnd={handleColDragEnd}
           >
-            <div className="flex items-center px-3 py-2">
+            <div className="flex items-center px-2 py-1.5">
               <GripVertical className="h-3 w-3 text-gray-300 opacity-0 group-hover/colhead:opacity-100 cursor-grab mr-1 flex-shrink-0" />
-              <span className="font-medium text-xs text-gray-500 uppercase tracking-wide truncate flex-1">{column.title}</span>
+              <span className="font-medium text-[11px] text-gray-500 uppercase tracking-wide truncate flex-1">{column.title}</span>
               <ColumnSettingsMenu column={column} boardId={board.id} onUpdate={() => onRefresh()} onDelete={() => onRefresh()}
                 onSort={(cid, dir) => setSortConfig({ columnId: cid, direction: dir })}
                 onFilter={(cid, val) => setFilterConfig(val ? { columnId: cid, value: val } : null)}
@@ -459,26 +462,30 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
     );
   };
 
-  const renderItemRow = (item, groupId, idx) => {
+  const renderItemRow = (item, groupId, idx, groupColor) => {
     const isSelected = selectedItems.has(item.id);
+    const stickyBg = isSelected ? 'bg-orange-50' : 'bg-white';
     return (
       <React.Fragment key={item.id}>
         {renderInsertLine(groupId, idx)}
         <div className={`flex items-center border-t border-gray-100 transition-colors ${isSelected ? 'bg-orange-50' : 'bg-white hover:bg-gray-50'}`} data-testid={`item-row-${item.id}`}>
-          <div className="w-10 flex-shrink-0 flex items-center justify-center">
-            <Checkbox checked={isSelected} onCheckedChange={() => toggleItemSelect(item.id)} className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" data-testid={`item-checkbox-${item.id}`} />
+          <div
+            className={`w-8 flex-shrink-0 flex items-center justify-center sticky left-0 z-20 ${stickyBg}`}
+            style={{ borderLeft: `3px solid ${groupColor || '#e5e7eb'}` }}
+          >
+            <Checkbox checked={isSelected} onCheckedChange={() => toggleItemSelect(item.id)} className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 h-3.5 w-3.5" data-testid={`item-checkbox-${item.id}`} />
           </div>
-          <div className="w-64 flex-shrink-0 px-4 py-2.5 border-r border-gray-100 flex items-center gap-1">
-            <Input value={item.name} onChange={(e) => onUpdateItem(item.id, { name: e.target.value })} className="border-0 shadow-none focus-visible:ring-0 h-8 px-2 -ml-2 flex-1 text-sm" />
-            <Button variant="ghost" size="sm" className="h-7 p-1 text-gray-400 hover:text-orange-500 flex-shrink-0 relative" onClick={() => setSelectedItem(item)} data-testid={`open-comments-${item.id}`}>
+          <div className={`w-56 flex-shrink-0 px-2 py-1.5 border-r border-gray-100 flex items-center gap-1 sticky left-8 z-20 ${stickyBg}`}>
+            <Input value={item.name} onChange={(e) => onUpdateItem(item.id, { name: e.target.value })} className="border-0 shadow-none focus-visible:ring-0 h-6 px-1.5 -ml-1 flex-1 text-xs" />
+            <Button variant="ghost" size="sm" className="h-6 p-0.5 text-gray-400 hover:text-orange-500 flex-shrink-0 relative" onClick={() => setSelectedItem(item)} data-testid={`open-comments-${item.id}`}>
               <MessageSquare className="h-3.5 w-3.5" />
               {commentCounts[item.id] > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">{commentCounts[item.id]}</span>
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full min-w-[14px] h-3.5 flex items-center justify-center px-0.5">{commentCounts[item.id]}</span>
               )}
             </Button>
           </div>
           {visibleColumns.map((column) => (
-            <div key={column.id} className="flex-shrink-0 px-4 py-2.5 border-r border-gray-100" style={{ width: `${getColWidth(column)}px` }}>
+            <div key={column.id} className="flex-shrink-0 px-2 py-1.5 border-r border-gray-100 text-xs" style={{ width: `${getColWidth(column)}px` }}>
               {getColumnComponent(column, item)}
             </div>
           ))}
@@ -544,7 +551,7 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                       </div>
                     </div>
                     {!isCollapsed && renderColumnHeaders('#6366f1', null)}
-                    {!isCollapsed && visibleItems.map((item, idx) => renderItemRow(item, groupName, idx))}
+                    {!isCollapsed && visibleItems.map((item, idx) => renderItemRow(item, groupName, idx, '#6366f1'))}
                     {!isCollapsed && visCount < groupItems.length && (
                       <div className="flex justify-center py-2 bg-white border-t border-gray-100">
                         <Button variant="ghost" size="sm" className="text-orange-600 text-xs" onClick={() => showMore(groupName)}>Show more ({groupItems.length - visCount} remaining)</Button>
@@ -564,13 +571,13 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
 
                 return (
                   <div key={group.id}>
-                    <div className="flex items-center bg-white hover:bg-gray-50 cursor-pointer" style={{ borderLeft: `4px solid ${group.color}` }}>
-                      <div className="w-10 flex-shrink-0 flex items-center justify-center">
+                    <div className="flex items-center bg-white hover:bg-gray-50 cursor-pointer sticky top-0 z-20" style={{ borderLeft: `4px solid ${group.color}` }}>
+                      <div className="w-8 flex-shrink-0 flex items-center justify-center sticky left-0 bg-white">
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleGroup(group.id)}>
                           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
                       </div>
-                      <div className="flex-1 px-4 py-3 font-semibold text-sm flex items-center gap-2">
+                      <div className="flex-1 px-3 py-2 font-semibold text-sm flex items-center gap-2 sticky left-8 bg-white min-w-[288px] max-w-[600px]">
                         {editingGroupId === group.id ? (
                           <Input value={editingGroupTitle} onChange={(e) => setEditingGroupTitle(e.target.value)}
                             onBlur={() => handleRenameGroup(group.id)}
@@ -590,7 +597,7 @@ const TableView = ({ board, items, groups, onAddItem, onUpdateItem, onDeleteItem
                     </div>
 
                     {!isCollapsed && renderColumnHeaders(group.color, group.id)}
-                    {!isCollapsed && visibleItems.map((item, idx) => renderItemRow(item, group.id, idx))}
+                    {!isCollapsed && visibleItems.map((item, idx) => renderItemRow(item, group.id, idx, group.color))}
                     {!isCollapsed && visibleItems.length > 0 && renderInsertLine(group.id, visibleItems.length)}
                     {!isCollapsed && visCount < groupItems.length && (
                       <div className="flex justify-center py-2 bg-white border-t border-gray-100" style={{ borderLeft: `4px solid ${group.color}` }}>

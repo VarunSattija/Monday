@@ -152,12 +152,8 @@ async def delete_update(
     update_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    update = await db.updates.find_one({"id": update_id})
-    if not update:
-        raise HTTPException(status_code=404, detail="Update not found")
-    
-    if update["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    await db.updates.delete_one({"id": update_id})
-    return {"message": "Update deleted successfully"}
+    # Comments cannot be deleted to preserve an auditable trail (compliance).
+    raise HTTPException(
+        status_code=403,
+        detail="Comments cannot be deleted for compliance reasons.",
+    )

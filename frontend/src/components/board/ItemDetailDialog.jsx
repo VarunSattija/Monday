@@ -245,15 +245,6 @@ const ItemDetailDialog = ({ item, open, onClose }) => {
                       <div className="mt-1 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
                         {renderCommentContent(comment.content)}
                       </div>
-                      {comment.user_id === user?.id && (
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="text-xs text-red-400 hover:text-red-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-testid={`delete-comment-${comment.id}`}
-                        >
-                          Delete
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
