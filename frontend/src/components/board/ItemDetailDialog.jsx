@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, MessageSquare, Clock, AtSign } from 'lucide-react';
+import { X, Send, MessageSquare, AtSign } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from '../../hooks/use-toast';
 import api from '../../config/api';
+import CommentItem from './CommentItem';
 
 const MentionInput = ({ value, onChange, onSubmit, disabled, boardId, currentUserId }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -127,21 +128,6 @@ const MentionInput = ({ value, onChange, onSubmit, disabled, boardId, currentUse
   );
 };
 
-const renderCommentContent = (content) => {
-  if (!content) return null;
-  const parts = content.split(/(@\w[\w\s]*?)(?=\s@|\s*$|[,.])/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('@')) {
-      return (
-        <span key={i} className="bg-orange-100 text-orange-700 rounded px-1 font-medium">
-          {part}
-        </span>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
-};
-
 const ItemDetailDialog = ({ item, open, onClose }) => {
   const { user } = useAuth();
   const [comments, setComments] = useState([]);
@@ -215,30 +201,30 @@ const ItemDetailDialog = ({ item, open, onClose }) => {
               <p className="text-gray-400 text-sm">No comments yet. Be the first to comment!</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {comments.map(comment => (
-                <div key={comment.id} className="group" data-testid={`comment-${comment.id}`}>
-                  <div className="flex gap-3">
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs">
-                        {comment.user_name?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-gray-900">{comment.user_name}</span>
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
-                        {renderCommentContent(comment.content)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-3">
+              {(() => {
+                const topLevel = comments.filter((c) => !c.parent_id);
+                const repliesByParent = {};
+                comments.forEach((c) => {
+                  if (c.parent_id) {
+                    if (!repliesByParent[c.parent_id]) repliesByParent[c.parent_id] = [];
+                    repliesByParent[c.parent_id].push(c);
+                  }
+                });
+                Object.values(repliesByParent).forEach((arr) =>
+                  arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                );
+                return topLevel.map((c) => (
+                  <CommentItem
+                    key={c.id}
+                    comment={c}
+                    replies={repliesByParent[c.id] || []}
+                    currentUser={user}
+                    item={item}
+                    onRefresh={fetchComments}
+                  />
+                ));
+              })()}
             </div>
           )}
         </div>

@@ -189,6 +189,7 @@ class Group(BaseModel):
 class UpdateCreate(BaseModel):
     item_id: str
     content: str
+    parent_id: Optional[str] = None  # for replies
 
 
 class Update(BaseModel):
@@ -197,6 +198,9 @@ class Update(BaseModel):
     content: str
     user_id: str
     user_name: str
+    parent_id: Optional[str] = None
+    likes: List[str] = []          # user_ids who liked
+    viewers: List[str] = []        # user_ids who have seen this comment
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -54,6 +54,24 @@ async def create_update(
             user_name = user.get("name", "Someone")
             item_name = item.get("name", "an item")
             notified = set()
+
+            # Notify the parent comment's author when someone replies
+            parent_author_id = None
+            if update_data.parent_id:
+                parent = await db.updates.find_one({"id": update_data.parent_id})
+                if parent and parent.get("user_id") and parent.get("user_id") != current_user["id"]:
+                    parent_author_id = parent["user_id"]
+                    await create_notification(
+                        user_id=parent_author_id,
+                        type="reply",
+                        title="New reply",
+                        message=f'{user_name} replied to your comment on "{item_name}"',
+                        board_id=item.get("board_id", ""),
+                        item_id=update_data.item_id,
+                        actor_id=current_user["id"],
+                        actor_name=user_name,
+                    )
+                    notified.add(parent_author_id)
             
             # Send @mention notifications first (higher priority)
             for uid in mentioned_user_ids:
@@ -145,6 +163,50 @@ async def get_board_update_counts(
         counts[doc["_id"]] = doc["count"]
     
     return counts
+
+
+@router.post("/{update_id}/view")
+async def mark_viewed(
+    update_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Idempotently record that the current user has seen this comment."""
+    update = await db.updates.find_one({"id": update_id})
+    if not update:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    # Don't track the author's own view
+    if update.get("user_id") == current_user["id"]:
+        return {"viewers_count": len(update.get("viewers", []))}
+    await db.updates.update_one(
+        {"id": update_id},
+        {"$addToSet": {"viewers": current_user["id"]}},
+    )
+    fresh = await db.updates.find_one({"id": update_id})
+    return {"viewers_count": len(fresh.get("viewers", []))}
+
+
+@router.post("/{update_id}/like")
+async def toggle_like(
+    update_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    update = await db.updates.find_one({"id": update_id})
+    if not update:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    likes = update.get("likes", [])
+    uid = current_user["id"]
+    if uid in likes:
+        await db.updates.update_one({"id": update_id}, {"$pull": {"likes": uid}})
+        liked = False
+    else:
+        await db.updates.update_one({"id": update_id}, {"$addToSet": {"likes": uid}})
+        liked = True
+    fresh = await db.updates.find_one({"id": update_id})
+    return {
+        "liked": liked,
+        "likes_count": len(fresh.get("likes", [])),
+        "likes": fresh.get("likes", []),
+    }
 
 
 @router.delete("/{update_id}")
